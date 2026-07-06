@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{% if doc %}{{ doc.title }} 편집{% else %}새 문서 작성{% endif %}{% endblock %}
+{% block content %}
+<section class="editor">
+  <h2>{% if doc %}✏️ 문서 편집{% else %}✏️ 새 문서 작성{% endif %}</h2>
+  <form action="{% if doc %}/wiki/{{ doc.id }}/edit{% else %}/wiki/new{% endif %}" method="post" class="editor-form">
+    <input type="text" name="title" placeholder="제목" required
+           value="{{ doc.title if doc else '' }}">
+    <div class="editor-row">
+      <input type="text" name="department" placeholder="부서" value="{{ doc.department if doc else '' }}">
+      <input type="text" name="tags" placeholder="태그 (쉼표 구분)" value="{{ doc.tags if doc else '' }}">
+      {% if doc %}<input type="text" name="note" placeholder="변경 내용 요약">{% endif %}
+    </div>
+    <textarea name="content" rows="24" placeholder="마크다운으로 작성하세요.&#10;&#10;# 제목&#10;## 소제목&#10;- 목록&#10;**굵게**, `코드`, 표와 코드블록 지원">{{ content }}</textarea>
+    <div class="editor-actions">
+      <button type="submit" class="btn primary">저장</button>
+      <a class="btn" href="{% if doc %}/documents/{{ doc.id }}{% else %}/{% endif %}">취소</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

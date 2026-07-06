@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}검색: {{ q }}{% endblock %}
+{% block content %}
+<section>
+  <div class="section-head">
+    <h2>‘{{ q }}’ 검색 결과 <span class="count">{{ results | length }}건</span></h2>
+    <div class="chips">
+      <a class="chip {% if not dept %}active{% endif %}" href="/search?q={{ q }}">전체</a>
+      {% for d in departments %}
+      <a class="chip {% if dept == d %}active{% endif %}" href="/search?q={{ q }}&dept={{ d }}">{{ d }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if results %}
+  <ul class="result-list">
+    {% for r in results %}
+    <li>
+      <a class="result-title" href="/documents/{{ r.id }}">{{ r.title }}</a>
+      {% if r.doc_type == 'wiki' %}<span class="badge wiki">위키</span>{% else %}<span class="badge">파일</span>{% endif %}
+      {% if r.department %}<span class="badge dept">{{ r.department }}</span>{% endif %}
+      {% if r.snip %}<p class="snippet">{{ r.snip | safe }}</p>{% endif %}
+      <div class="doc-meta"><span>수정 {{ r.updated_at }}</span>{% if r.tags %} · <span>🏷 {{ r.tags }}</span>{% endif %}</div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif q %}
+  <p class="empty">검색 결과가 없습니다.</p>
+  {% else %}
+  <p class="empty">검색어를 입력해 주세요.</p>
+  {% endif %}
+</section>
+{% endblock %}

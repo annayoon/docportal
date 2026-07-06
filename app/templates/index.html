@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}홈{% endblock %}
+{% block content %}
+<section class="upload-card">
+  <h2>문서 업로드</h2>
+  <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+    <input type="file" name="file" required>
+    <input type="text" name="title" placeholder="제목 (비우면 파일명 사용)">
+    <input type="text" name="department" list="dept-list" placeholder="부서">
+    <input type="text" name="tags" placeholder="태그 (쉼표 구분)">
+    <input type="text" name="note" placeholder="비고">
+    <button type="submit" class="btn primary">업로드</button>
+  </form>
+  <datalist id="dept-list">
+    {% for d in departments %}<option value="{{ d }}">{% endfor %}
+  </datalist>
+</section>
+
+<section>
+  <div class="section-head">
+    <h2>최근 문서</h2>
+    <div class="chips">
+      <a class="chip {% if not dept %}active{% endif %}" href="/">전체</a>
+      {% for d in departments %}
+      <a class="chip {% if dept == d %}active{% endif %}" href="/?dept={{ d }}">{{ d }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if docs %}
+  <table class="doc-table">
+    <thead><tr><th>제목</th><th>종류</th><th>부서</th><th>버전</th><th>크기</th><th>수정일</th></tr></thead>
+    <tbody>
+      {% for d in docs %}
+      <tr>
+        <td><a href="/documents/{{ d.id }}">{{ d.title }}</a>
+          {% if d.tags %}<span class="tags">{{ d.tags }}</span>{% endif %}</td>
+        <td>{% if d.doc_type == 'wiki' %}<span class="badge wiki">위키</span>{% else %}<span class="badge">파일</span>{% endif %}</td>
+        <td>{{ d.department or '-' }}</td>
+        <td>v{{ d.version_no }}</td>
+        <td>{{ d.size | filesize }}</td>
+        <td>{{ d.updated_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">아직 문서가 없습니다. 첫 문서를 업로드해 보세요.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DocPortal{% endblock %} — 전사 문서 포털</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">📚 DocPortal</a>
+    <form class="searchbox" action="/search" method="get">
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="문서 제목·내용·태그 검색…" autocomplete="off">
+      <button type="submit">검색</button>
+    </form>
+    <nav>
+      <a class="btn" href="/wiki/new">✏️ 새 문서 작성</a>
+    </nav>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">DocPortal · 사내 문서 포털</footer>
+</body>
+</html>

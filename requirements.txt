@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+markdown
+pypdf
+python-docx
+python-pptx
+openpyxl
+olefile
