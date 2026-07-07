@@ -55,8 +55,12 @@ uvicorn app.main:app --port 8001 --reload
   캐시 — `app/services/summarizer.py`가 Ollama(`DOCPORTAL_OLLAMA_URL`, 기본
   localhost:11434, 모델 `DOCPORTAL_OLLAMA_MODEL` 기본 gemma4:12b) 시도 후 실패하면
   빈도 기반 추출 요약으로 폴백. 사내 서버에 Ollama 없어도 동작.
-  업로드/위키 저장 시 FastAPI BackgroundTasks로 **자동 요약** — 응답은 즉시
-  반환되고 요약은 뒤에서 채워진다. [요약 생성/다시 생성] 버튼은 수동 재시도용.
+  업로드/위키 저장 시 FastAPI BackgroundTasks로 **자동 요약+키워드 추출**
+  (`analyze_version`) — 응답은 즉시 반환되고 결과는 뒤에서 채워진다.
+  키워드는 `versions.keywords`(콤마 구분)에 저장되고 FTS의 `keywords` 컬럼으로
+  인덱싱되어 **본문에 없는 표현도 키워드로 검색**된다. 문서 페이지에 클릭
+  가능한 #키워드 칩으로 표시(클릭 → 검색). LLM 응답은 Ollama `format: json`
+  구조화 출력 사용. [요약 생성/다시 생성] 버튼은 수동 재시도용.
 
 - 저장소 통계: `/admin/storage` (관리자 전용) — 실제/논리 용량, 중복 제거
   절약분, DB 크기, 디스크 여유, 부서별 사용량. 업로드 용량 제한은 **의도적으로

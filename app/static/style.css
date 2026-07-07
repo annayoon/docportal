@@ -138,6 +138,7 @@ mark { background: var(--mark); padding: 0 2px; border-radius: 2px; }
 }
 .summary-card .section-head { margin-bottom: 4px; }
 .summary-body { white-space: pre-wrap; font-size: 0.95rem; }
+.kw-chips { margin-top: 12px; }
 .empty-inline { color: var(--muted); font-size: 0.9rem; margin: 6px 0; }
 
 .preview-frame {

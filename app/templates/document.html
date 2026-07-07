@@ -36,6 +36,13 @@
     </div>
     {% if versions[0].summary %}
     <div class="summary-body">{{ versions[0].summary }}</div>
+    {% if versions[0].keywords %}
+    <div class="chips kw-chips">
+      {% for kw in versions[0].keywords.split(',') %}
+      {% if kw.strip() %}<a class="chip" href="/search?q={{ kw.strip() | urlencode }}">#{{ kw.strip() }}</a>{% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
     {% else %}
     <p class="empty-inline">요약을 자동 생성하는 중입니다 — 잠시 후 새로고침해 보세요.
       바로 만들려면 [요약 생성]을 누르세요.</p>

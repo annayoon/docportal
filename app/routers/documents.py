@@ -11,7 +11,7 @@ from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
 from ..services import storage
 from ..services.extractor import extract_text
-from ..services.summarizer import summarize, summarize_version
+from ..services.summarizer import analyze, analyze_version
 from ..templating import templates
 
 router = APIRouter()
@@ -103,7 +103,7 @@ async def upload(
         conn.commit()
     finally:
         conn.close()
-    background_tasks.add_task(summarize_version, version_id)
+    background_tasks.add_task(analyze_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -179,7 +179,7 @@ async def upload_version(
         conn.commit()
     finally:
         conn.close()
-    background_tasks.add_task(summarize_version, version_id)
+    background_tasks.add_task(analyze_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -222,7 +222,7 @@ def preview_file(version_id: int):
 
 @router.post("/documents/{doc_id}/summarize")
 def summarize_document(doc_id: int, current_user=Depends(get_current_user)):
-    """최신 버전 본문을 요약해 버전에 캐시한다. (Ollama 없으면 추출 요약)"""
+    """최신 버전 본문을 요약·키워드 추출해 캐시하고 재인덱싱. (Ollama 없으면 빈도 기반)"""
     conn = get_conn()
     try:
         latest = conn.execute(
@@ -233,8 +233,12 @@ def summarize_document(doc_id: int, current_user=Depends(get_current_user)):
             raise HTTPException(404, "문서를 찾을 수 없습니다.")
         if not latest["content_text"].strip():
             raise HTTPException(400, "추출된 본문이 없어 요약할 수 없습니다.")
-        summary = summarize(latest["content_text"])
-        conn.execute("UPDATE versions SET summary = ? WHERE id = ?", (summary, latest["id"]))
+        summary, keywords = analyze(latest["content_text"])
+        conn.execute(
+            "UPDATE versions SET summary = ?, keywords = ? WHERE id = ?",
+            (summary, keywords, latest["id"]),
+        )
+        reindex_document(conn, doc_id)
         conn.commit()
     finally:
         conn.close()

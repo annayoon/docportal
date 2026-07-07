@@ -73,12 +73,12 @@ def init_db() -> None:
         try:
             conn.execute(
                 "CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5("
-                "title, content, tags, tokenize='trigram')"
+                "title, content, tags, keywords, tokenize='trigram')"
             )
         except sqlite3.OperationalError:
             conn.execute(
                 "CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5("
-                "title, content, tags, tokenize='unicode61')"
+                "title, content, tags, keywords, tokenize='unicode61')"
             )
         _migrate(conn)
         conn.commit()
@@ -101,6 +101,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
     version_cols = {row["name"] for row in conn.execute("PRAGMA table_info(versions)")}
     if "summary" not in version_cols:
         conn.execute("ALTER TABLE versions ADD COLUMN summary TEXT")
+    if "keywords" not in version_cols:
+        conn.execute("ALTER TABLE versions ADD COLUMN keywords TEXT")
+    # FTS에 keywords 컬럼이 없던 기존 DB는 인덱스를 재생성한다
+    fts_cols = {row["name"] for row in conn.execute("PRAGMA table_info(fts)")}
+    if "keywords" not in fts_cols:
+        conn.execute("DROP TABLE fts")
+        conn.execute(
+            "CREATE VIRTUAL TABLE fts USING fts5("
+            "title, content, tags, keywords, tokenize='trigram')"
+        )
+        for row in conn.execute("SELECT id FROM documents").fetchall():
+            reindex_document(conn, row["id"])
 
 
 def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
@@ -110,14 +122,15 @@ def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
     if doc is None:
         return
     latest = conn.execute(
-        "SELECT content_text FROM versions WHERE document_id = ? "
+        "SELECT content_text, keywords FROM versions WHERE document_id = ? "
         "ORDER BY version_no DESC LIMIT 1",
         (doc_id,),
     ).fetchone()
     content = latest["content_text"] if latest else ""
+    keywords = (latest["keywords"] or "") if latest else ""
     conn.execute(
-        "INSERT INTO fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)",
-        (doc_id, doc["title"], content, doc["tags"]),
+        "INSERT INTO fts(rowid, title, content, tags, keywords) VALUES (?, ?, ?, ?, ?)",
+        (doc_id, doc["title"], content, doc["tags"], keywords),
     )
 
 

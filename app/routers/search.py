@@ -33,9 +33,10 @@ def search(request: Request, q: str = "", dept: str = ""):
                     "SELECT d.*, '' AS snip FROM documents d "
                     "JOIN versions v ON v.document_id = d.id AND v.version_no = "
                     "  (SELECT MAX(version_no) FROM versions WHERE document_id = d.id) "
-                    "WHERE (d.title LIKE ? OR d.tags LIKE ? OR v.content_text LIKE ?) "
+                    "WHERE (d.title LIKE ? OR d.tags LIKE ? OR v.content_text LIKE ? "
+                    "  OR v.keywords LIKE ?) "
                 )
-                params = [like, like, like]
+                params = [like, like, like, like]
                 if dept:
                     sql += "AND d.department = ? "
                     params.append(dept)

@@ -3,7 +3,7 @@ from fastapi.responses import RedirectResponse
 
 from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
-from ..services.summarizer import summarize_version
+from ..services.summarizer import analyze_version
 from ..templating import templates
 
 router = APIRouter(prefix="/wiki")
@@ -44,7 +44,7 @@ def create_page(
         conn.commit()
     finally:
         conn.close()
-    background_tasks.add_task(summarize_version, version_id)
+    background_tasks.add_task(analyze_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -109,5 +109,5 @@ def save_page(
         conn.commit()
     finally:
         conn.close()
-    background_tasks.add_task(summarize_version, version_id)
+    background_tasks.add_task(analyze_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
