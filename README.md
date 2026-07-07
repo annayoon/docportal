@@ -15,6 +15,8 @@
 - **부서/태그 분류** — 부서별 필터, 태그 검색.
 - **로그인 & 관리자 승인** — 회사 이메일 도메인만 가입 가능, 관리자 승인 후
   로그인. 첫 가입자가 자동으로 관리자. 문서 삭제는 작성자/관리자만.
+- **이메일 인증 (선택)** — SMTP를 설정하면 가입 시 인증 메일 발송, 인증 완료
+  후 로그인 가능. 미설정 시 인증 절차 없이 관리자 승인만으로 동작.
 - **인앱 알림** — 문서 업로드·편집 시 다른 사용자에게 알림.
 
 ## 실행
@@ -27,6 +29,23 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 브라우저에서 `http://<서버주소>:8000` 접속.
+
+## 이메일 인증 설정 (선택)
+
+가입 인증 메일을 보내려면 SMTP 환경변수를 설정하고 실행한다.
+Gmail(Google Workspace)은 2단계 인증을 켠 뒤 [앱 비밀번호](https://myaccount.google.com/apppasswords)를 발급받아야 한다.
+
+```bash
+export DOCPORTAL_SMTP_HOST=smtp.gmail.com     # 기본값
+export DOCPORTAL_SMTP_PORT=587                # 기본값 (STARTTLS)
+export DOCPORTAL_SMTP_USER=포털용계정@atto-research.com
+export DOCPORTAL_SMTP_PASSWORD='앱 비밀번호 16자리'
+export DOCPORTAL_BASE_URL=http://<서버주소>:8000   # 인증 링크에 들어갈 주소
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+USER/PASSWORD가 없으면 인증 메일 없이 기존처럼 동작한다(폐쇄망 호환).
+메일이 유실된 경우 관리자가 [사용자 관리]에서 수동 인증 처리할 수 있다.
 
 ## 데이터
 

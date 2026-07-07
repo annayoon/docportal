@@ -91,6 +91,13 @@ def _migrate(conn: sqlite3.Connection) -> None:
     cols = {row["name"] for row in conn.execute("PRAGMA table_info(documents)")}
     if "created_by" not in cols:
         conn.execute("ALTER TABLE documents ADD COLUMN created_by INTEGER REFERENCES users(id)")
+    user_cols = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+    if "email_verified" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0")
+        # 기존 가입자는 인증 절차 없이 만들어졌으므로 인증된 것으로 간주
+        conn.execute("UPDATE users SET email_verified = 1")
+    if "verify_token" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN verify_token TEXT")
 
 
 def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:

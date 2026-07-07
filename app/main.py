@@ -15,7 +15,7 @@ app = FastAPI(title="DocPortal — 전사 문서 포털")
 
 init_db()
 
-PUBLIC_PATHS = {"/login", "/signup"}
+PUBLIC_PATHS = {"/login", "/signup", "/verify"}
 PUBLIC_PREFIXES = ("/static",)
 
 

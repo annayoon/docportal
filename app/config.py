@@ -14,6 +14,21 @@ ALLOWED_EMAIL_DOMAIN = os.environ.get("DOCPORTAL_EMAIL_DOMAIN", "atto-research.c
 
 SESSION_COOKIE = "docportal_session"
 
+# SMTP 설정 — USER/PASSWORD가 모두 있으면 가입 인증 메일을 발송한다.
+# Gmail(Google Workspace)은 2단계 인증 + 앱 비밀번호 필요: https://myaccount.google.com/apppasswords
+SMTP_HOST = os.environ.get("DOCPORTAL_SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("DOCPORTAL_SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("DOCPORTAL_SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("DOCPORTAL_SMTP_PASSWORD", "")
+SMTP_FROM = os.environ.get("DOCPORTAL_SMTP_FROM", SMTP_USER)
+SMTP_STARTTLS = os.environ.get("DOCPORTAL_SMTP_STARTTLS", "1") == "1"
+# 인증 메일 링크에 들어갈 이 서비스의 주소
+BASE_URL = os.environ.get("DOCPORTAL_BASE_URL", "http://localhost:8001").rstrip("/")
+
+
+def smtp_configured() -> bool:
+    return bool(SMTP_USER and SMTP_PASSWORD)
+
 
 def ensure_dirs() -> None:
     FILES_DIR.mkdir(parents=True, exist_ok=True)

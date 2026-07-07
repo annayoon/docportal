@@ -5,7 +5,7 @@
   <h2>사용자 관리</h2>
   <table class="doc-table">
     <thead>
-      <tr><th>이메일</th><th>부서</th><th>권한</th><th>상태</th><th>가입일</th><th></th></tr>
+      <tr><th>이메일</th><th>부서</th><th>권한</th><th>상태</th><th>인증</th><th>가입일</th><th></th></tr>
     </thead>
     <tbody>
       {% for u in users %}
@@ -18,8 +18,17 @@
           {% elif u.status == 'approved' %}<span class="badge wiki">승인됨</span>
           {% else %}<span class="badge dept">거부됨</span>{% endif %}
         </td>
+        <td>
+          {% if u.email_verified %}<span class="badge wiki">인증됨</span>
+          {% else %}<span class="badge">미인증</span>{% endif %}
+        </td>
         <td>{{ u.created_at }}</td>
         <td class="admin-actions">
+          {% if not u.email_verified %}
+          <form action="/admin/users/{{ u.id }}/verify" method="post" class="inline-form">
+            <button class="btn" type="submit">수동 인증</button>
+          </form>
+          {% endif %}
           {% if u.status != 'approved' %}
           <form action="/admin/users/{{ u.id }}/approve" method="post" class="inline-form">
             <button class="btn primary" type="submit">승인</button>

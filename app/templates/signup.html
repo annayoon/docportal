@@ -11,7 +11,9 @@
     <a class="brand" href="/login">📚 DocPortal</a>
     <section class="editor auth-card">
       <h2>가입 신청</h2>
-      <p class="notice">회사 이메일(@{{ domain }})로만 가입할 수 있습니다. 가입 신청 후 관리자 승인이 필요합니다.</p>
+      <p class="notice">회사 이메일(@{{ domain }})로만 가입할 수 있습니다.
+        {% if verify_enabled %}가입 후 이메일 인증과 관리자 승인이 필요합니다.
+        {% else %}가입 신청 후 관리자 승인이 필요합니다.{% endif %}</p>
       {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
       <form action="/signup" method="post" class="editor-form">
         <input type="email" name="email" placeholder="예: name@{{ domain }}" required autofocus>

@@ -42,6 +42,20 @@ def reject_user(user_id: int, admin=Depends(get_current_admin)):
     return RedirectResponse("/admin/users", status_code=303)
 
 
+@router.post("/users/{user_id}/verify")
+def verify_user(user_id: int, admin=Depends(get_current_admin)):
+    """인증 메일이 유실된 경우 관리자가 수동으로 인증 처리한다."""
+    conn = get_conn()
+    try:
+        conn.execute(
+            "UPDATE users SET email_verified = 1, verify_token = NULL WHERE id = ?", (user_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse("/admin/users", status_code=303)
+
+
 @router.post("/users/{user_id}/toggle-admin")
 def toggle_admin(user_id: int, admin=Depends(get_current_admin)):
     conn = get_conn()

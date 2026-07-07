@@ -26,13 +26,18 @@ uvicorn app.main:app --port 8001 --reload
 - `data/`는 gitignore — DB와 업로드 원본이 들어 있으니 삭제 주의
 - 인증: `app/auth.py` + `app/routers/auth.py`. 외부 서비스 없이 stdlib만 사용
   (비밀번호는 PBKDF2-SHA256, 세션은 DB `sessions` 테이블 + 랜덤 토큰 쿠키).
-  `AuthMiddleware`(`app/main.py`)가 `/login`, `/signup`, `/static` 외 모든 경로에
-  로그인을 강제하고 `request.state.user`를 채워준다.
+  `AuthMiddleware`(`app/main.py`)가 `/login`, `/signup`, `/verify`, `/static` 외
+  모든 경로에 로그인을 강제하고 `request.state.user`를 채워준다.
   - 가입: `/signup`에서 회사 이메일 도메인(`DOCPORTAL_EMAIL_DOMAIN`, 기본
-    `atto-research.com`)만 허용. 실제 메일 발송은 하지 않음(폐쇄망 전제) —
-    가입 시 `users.status='pending'`으로 생성되고 관리자가 `/admin/users`에서
-    승인/거부해야 로그인 가능. **최초 가입자는 자동으로 관리자 계정으로 승인**됨
-    (부트스트랩용).
+    `atto-research.com`)만 허용. 가입 시 `users.status='pending'`으로 생성되고
+    관리자가 `/admin/users`에서 승인/거부해야 로그인 가능.
+    **최초 가입자는 자동으로 관리자 계정으로 승인**됨 (부트스트랩용).
+  - 이메일 인증(선택): `DOCPORTAL_SMTP_USER/PASSWORD`가 설정된 경우에만 활성화
+    (`app/services/mailer.py`, 기본 smtp.gmail.com:587 — Gmail은 앱 비밀번호 필요).
+    가입 → `/verify?token=` 링크 메일 → 인증 → 관리자 승인 → 로그인 순서.
+    SMTP 미설정이면 인증 절차 생략(폐쇄망 호환). 메일 유실 시 관리자가
+    `/admin/users`에서 수동 인증 처리 가능. 인증 링크의 호스트는
+    `DOCPORTAL_BASE_URL`로 지정.
   - 권한 범위는 의도적으로 넓다: 로그인한 사용자는 부서 무관하게 모든 문서를
     조회/업로드/편집할 수 있다. `department`는 분류용 태그일 뿐 접근 제어에
     쓰이지 않는다. 유일한 제한은 문서 삭제 — 작성자 본인(`documents.created_by`)
