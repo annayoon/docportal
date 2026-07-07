@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from ..db import get_conn, reindex_document
+from ..auth import get_current_user
+from ..db import get_conn, notify_others, reindex_document
 from ..templating import templates
 
 router = APIRouter(prefix="/wiki")
@@ -18,12 +19,14 @@ def create_page(
     department: str = Form(""),
     tags: str = Form(""),
     content: str = Form(""),
+    current_user=Depends(get_current_user),
 ):
     conn = get_conn()
     try:
         cur = conn.execute(
-            "INSERT INTO documents (title, doc_type, department, tags) VALUES (?, 'wiki', ?, ?)",
-            (title.strip(), department.strip(), tags.strip()),
+            "INSERT INTO documents (title, doc_type, department, tags, created_by) "
+            "VALUES (?, 'wiki', ?, ?, ?)",
+            (title.strip(), department.strip(), tags.strip(), current_user["id"]),
         )
         doc_id = cur.lastrowid
         conn.execute(
@@ -32,6 +35,10 @@ def create_page(
             (doc_id, content),
         )
         reindex_document(conn, doc_id)
+        notify_others(
+            conn, current_user["id"], doc_id,
+            f"{current_user['email']}님이 새 위키 문서를 작성했습니다: {title.strip()}",
+        )
         conn.commit()
     finally:
         conn.close()
@@ -68,6 +75,7 @@ def save_page(
     tags: str = Form(""),
     content: str = Form(""),
     note: str = Form(""),
+    current_user=Depends(get_current_user),
 ):
     conn = get_conn()
     try:
@@ -90,6 +98,10 @@ def save_page(
             (doc_id, next_no, content, note.strip()),
         )
         reindex_document(conn, doc_id)
+        notify_others(
+            conn, current_user["id"], doc_id,
+            f"{current_user['email']}님이 위키 문서를 수정했습니다: {title.strip()}",
+        )
         conn.commit()
     finally:
         conn.close()

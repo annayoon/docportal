@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}알림{% endblock %}
+{% block content %}
+<section>
+  <h2>알림</h2>
+  {% if notifications %}
+  <ul class="notif-list">
+    {% for n in notifications %}
+    <li class="{% if not n.is_read %}unread{% endif %}">
+      <a href="/documents/{{ n.document_id }}">{{ n.message }}</a>
+      <span class="notif-time">{{ n.created_at }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">알림이 없습니다.</p>
+  {% endif %}
+</section>
+{% endblock %}

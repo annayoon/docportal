@@ -17,10 +17,12 @@
       {% else %}
       <a class="btn" href="/versions/{{ versions[0].id }}/download">⬇ 최신 버전 다운로드</a>
       {% endif %}
+      {% if request.state.user and (request.state.user.role == 'admin' or request.state.user.id == doc.created_by) %}
       <form action="/documents/{{ doc.id }}/delete" method="post"
             onsubmit="return confirm('이 문서와 모든 버전을 삭제할까요?')">
         <button type="submit" class="btn danger">삭제</button>
       </form>
+      {% endif %}
     </div>
   </div>
 

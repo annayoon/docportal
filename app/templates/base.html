@@ -15,6 +15,16 @@
     </form>
     <nav>
       <a class="btn" href="/wiki/new">✏️ 새 문서 작성</a>
+      {% if request.state.user %}
+      <a class="btn bell" href="/notifications">🔔{% if request.state.unread_count %}<span class="badge-count">{{ request.state.unread_count }}</span>{% endif %}</a>
+      {% if request.state.user.role == 'admin' %}
+      <a class="btn" href="/admin/users">👤 사용자 관리</a>
+      {% endif %}
+      <span class="user-chip">{{ request.state.user.email }}{% if request.state.user.department %} · {{ request.state.user.department }}{% endif %}</span>
+      <form action="/logout" method="post" class="inline-form">
+        <button type="submit" class="btn">로그아웃</button>
+      </form>
+      {% endif %}
     </nav>
   </header>
   <main class="container">

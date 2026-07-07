@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>가입 신청 — DocPortal</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container auth-container">
+    <a class="brand" href="/login">📚 DocPortal</a>
+    <section class="editor auth-card">
+      <h2>가입 신청</h2>
+      <p class="notice">회사 이메일(@{{ domain }})로만 가입할 수 있습니다. 가입 신청 후 관리자 승인이 필요합니다.</p>
+      {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+      <form action="/signup" method="post" class="editor-form">
+        <input type="email" name="email" placeholder="예: name@{{ domain }}" required autofocus>
+        <input type="password" name="password" placeholder="비밀번호 (8자 이상)" required minlength="8">
+        <input type="text" name="department" placeholder="부서">
+        <button type="submit" class="btn primary">가입 신청</button>
+      </form>
+      <p class="auth-switch">이미 계정이 있으신가요? <a href="/login">로그인</a></p>
+    </section>
+  </main>
+</body>
+</html>

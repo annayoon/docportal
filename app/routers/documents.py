@@ -1,10 +1,11 @@
 from pathlib import Path
 
 import markdown as md
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
-from ..db import get_conn, reindex_document
+from ..auth import get_current_user
+from ..db import get_conn, notify_others, reindex_document
 from ..services import storage
 from ..services.extractor import extract_text
 from ..templating import templates
@@ -51,6 +52,7 @@ async def upload(
     tags: str = Form(""),
     note: str = Form(""),
     file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
 ):
     data = await file.read()
     filename = file.filename or "unnamed"
@@ -58,11 +60,13 @@ async def upload(
         raise HTTPException(400, "빈 파일입니다.")
     sha, stored_name, size = storage.save_file(data)
     text = extract_text(data, filename)
+    doc_title = title.strip() or Path(filename).stem
     conn = get_conn()
     try:
         cur = conn.execute(
-            "INSERT INTO documents (title, doc_type, department, tags) VALUES (?, 'file', ?, ?)",
-            (title.strip() or Path(filename).stem, department.strip(), tags.strip()),
+            "INSERT INTO documents (title, doc_type, department, tags, created_by) "
+            "VALUES (?, 'file', ?, ?, ?)",
+            (doc_title, department.strip(), tags.strip(), current_user["id"]),
         )
         doc_id = cur.lastrowid
         conn.execute(
@@ -71,6 +75,10 @@ async def upload(
             (doc_id, filename, stored_name, sha, size, text, note.strip()),
         )
         reindex_document(conn, doc_id)
+        notify_others(
+            conn, current_user["id"], doc_id,
+            f"{current_user['email']}님이 새 문서를 업로드했습니다: {doc_title}",
+        )
         conn.commit()
     finally:
         conn.close()
@@ -110,6 +118,7 @@ async def upload_version(
     doc_id: int,
     note: str = Form(""),
     file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
 ):
     data = await file.read()
     filename = file.filename or "unnamed"
@@ -136,6 +145,10 @@ async def upload_version(
             (doc_id,),
         )
         reindex_document(conn, doc_id)
+        notify_others(
+            conn, current_user["id"], doc_id,
+            f"{current_user['email']}님이 문서에 새 버전을 올렸습니다: {doc['title']} (v{next_no})",
+        )
         conn.commit()
     finally:
         conn.close()
@@ -158,9 +171,14 @@ def download(version_id: int):
 
 
 @router.post("/documents/{doc_id}/delete")
-def delete(doc_id: int):
+def delete(doc_id: int, current_user=Depends(get_current_user)):
     conn = get_conn()
     try:
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if doc is None:
+            raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        if current_user["role"] != "admin" and doc["created_by"] != current_user["id"]:
+            raise HTTPException(403, "삭제 권한이 없습니다 (작성자 또는 관리자만 삭제할 수 있습니다).")
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.execute("DELETE FROM fts WHERE rowid = ?", (doc_id,))
         conn.commit()

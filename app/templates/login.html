@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>로그인 — DocPortal</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container auth-container">
+    <a class="brand" href="/login">📚 DocPortal</a>
+    <section class="editor auth-card">
+      <h2>로그인</h2>
+      {% if notice %}<p class="notice">{{ notice }}</p>{% endif %}
+      {% if error %}<p class="notice error">{{ error }}</p>{% endif %}
+      <form action="/login" method="post" class="editor-form">
+        <input type="hidden" name="next" value="{{ next or '/' }}">
+        <input type="email" name="email" placeholder="회사 이메일" required autofocus>
+        <input type="password" name="password" placeholder="비밀번호" required>
+        <button type="submit" class="btn primary">로그인</button>
+      </form>
+      <p class="auth-switch">계정이 없으신가요? <a href="/signup">가입 신청</a></p>
+    </section>
+  </main>
+</body>
+</html>
