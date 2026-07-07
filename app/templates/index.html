@@ -4,13 +4,14 @@
 <section class="upload-card">
   <h2>문서 업로드</h2>
   <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
-    <input type="file" name="file" required>
-    <input type="text" name="title" placeholder="제목 (비우면 파일명 사용)">
+    <input type="file" name="files" multiple required>
+    <input type="text" name="title" placeholder="제목 (파일 1개일 때만 적용)">
     <input type="text" name="department" list="dept-list" placeholder="부서">
     <input type="text" name="tags" placeholder="태그 (쉼표 구분)">
     <input type="text" name="note" placeholder="비고">
     <button type="submit" class="btn primary">업로드</button>
   </form>
+  <p class="upload-hint">여러 파일을 한 번에 선택할 수 있습니다. 부서·태그·비고는 전체에 공통 적용되고, 파일별 제목은 파일명이 됩니다.</p>
   <datalist id="dept-list">
     {% for d in departments %}<option value="{{ d }}">{% endfor %}
   </datalist>

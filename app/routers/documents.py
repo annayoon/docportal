@@ -119,39 +119,62 @@ async def upload(
     department: str = Form(""),
     tags: str = Form(""),
     note: str = Form(""),
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     current_user=Depends(get_current_user),
 ):
-    data = await file.read()
-    filename = file.filename or "unnamed"
-    if not data:
-        raise HTTPException(400, "빈 파일입니다.")
-    sha, stored_name, size = storage.save_file(data)
-    text = extract_text(data, filename)
-    doc_title = title.strip() or Path(filename).stem
+    # 실제 내용이 있는 파일만 추린다 (빈 file 파트는 무시)
+    uploads = [f for f in files if f.filename]
+    if not uploads:
+        raise HTTPException(400, "업로드할 파일을 선택해 주세요.")
+    # 제목은 파일이 하나일 때만 적용 — 여러 개면 각 파일명을 제목으로 사용
+    single = len(uploads) == 1
+
+    new_ids: list[int] = []
     conn = get_conn()
     try:
-        cur = conn.execute(
-            "INSERT INTO documents (title, doc_type, department, tags, created_by) "
-            "VALUES (?, 'file', ?, ?, ?)",
-            (doc_title, department.strip(), tags.strip(), current_user["id"]),
-        )
-        doc_id = cur.lastrowid
-        version_id = conn.execute(
-            "INSERT INTO versions (document_id, version_no, filename, stored_name, sha256, size, content_text, note) "
-            "VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
-            (doc_id, filename, stored_name, sha, size, text, note.strip()),
-        ).lastrowid
-        reindex_document(conn, doc_id)
-        notify_others(
-            conn, current_user["id"], doc_id,
-            f"{current_user['email']}님이 새 문서를 업로드했습니다: {doc_title}",
-        )
+        for file in uploads:
+            data = await file.read()
+            filename = file.filename or "unnamed"
+            if not data:
+                continue
+            sha, stored_name, size = storage.save_file(data)
+            text = extract_text(data, filename)
+            doc_title = (title.strip() if single else "") or Path(filename).stem
+            cur = conn.execute(
+                "INSERT INTO documents (title, doc_type, department, tags, created_by) "
+                "VALUES (?, 'file', ?, ?, ?)",
+                (doc_title, department.strip(), tags.strip(), current_user["id"]),
+            )
+            doc_id = cur.lastrowid
+            version_id = conn.execute(
+                "INSERT INTO versions (document_id, version_no, filename, stored_name, sha256, size, content_text, note) "
+                "VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
+                (doc_id, filename, stored_name, sha, size, text, note.strip()),
+            ).lastrowid
+            reindex_document(conn, doc_id)
+            new_ids.append(doc_id)
+            background_tasks.add_task(analyze_version, version_id)
+        if not new_ids:
+            raise HTTPException(400, "빈 파일입니다.")
+        if single:
+            notify_others(
+                conn, current_user["id"], new_ids[0],
+                f"{current_user['email']}님이 새 문서를 업로드했습니다: "
+                f"{conn.execute('SELECT title FROM documents WHERE id = ?', (new_ids[0],)).fetchone()['title']}",
+            )
+        else:
+            # 여러 건은 각 문서마다 알림을 쏟지 않고 한 번만 요약해서 브로드캐스트
+            notify_others(
+                conn, current_user["id"], new_ids[0],
+                f"{current_user['email']}님이 새 문서 {len(new_ids)}건을 업로드했습니다.",
+            )
         conn.commit()
     finally:
         conn.close()
-    background_tasks.add_task(analyze_version, version_id)
-    return RedirectResponse(f"/documents/{doc_id}", status_code=303)
+    # 한 건이면 상세로, 여러 건이면 목록으로 이동
+    return RedirectResponse(
+        f"/documents/{new_ids[0]}" if single else "/", status_code=303
+    )
 
 
 @router.get("/documents/{doc_id}")
