@@ -13,6 +13,8 @@ MAX_TEXT_LEN = 2_000_000
 ALLOWED_EMAIL_DOMAIN = os.environ.get("DOCPORTAL_EMAIL_DOMAIN", "atto-research.com")
 
 SESSION_COOKIE = "docportal_session"
+# HTTPS(nginx TLS 종단) 뒤에서 운영할 때 1로 설정 — 세션 쿠키에 Secure 플래그를 붙인다
+SECURE_COOKIES = os.environ.get("DOCPORTAL_SECURE_COOKIES", "0") == "1"
 
 # 문서 형식 변환(LibreOffice headless) — 미설치면 원본 다운로드만 제공.
 # 실행 파일 경로를 직접 지정하려면 DOCPORTAL_SOFFICE 설정.

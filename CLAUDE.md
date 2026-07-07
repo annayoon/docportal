@@ -81,6 +81,11 @@ uvicorn app.main:app --port 8001 --reload
   original(그대로)/pdf(변환), 위키는 html(순수 파이썬)/pdf/docx(LibreOffice).
   soffice 경로는 자동 탐색 + `DOCPORTAL_SOFFICE`로 지정. 미설치면 원본/HTML만.
 
+- 배포: `deploy/` — install.sh(멱등 설치 스크립트, Ubuntu 기준),
+  docportal.service(systemd, 데이터는 /var/lib/docportal 분리),
+  nginx.conf(리버스 프록시, client_max_body_size 0 = 업로드 무제한 정책).
+  HTTPS 뒤에서는 `DOCPORTAL_SECURE_COOKIES=1`로 세션 쿠키 Secure 플래그.
+
 ## 로드맵 (우선순위 순)
 
 1. ~~로그인 / 부서별 권한~~ — 완료. 로그인 필수 + 이메일 도메인 가입 + 관리자

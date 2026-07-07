@@ -32,7 +32,7 @@
   후 로그인 가능. 미설정 시 인증 절차 없이 관리자 승인만으로 동작.
 - **인앱 알림** — 문서 업로드·편집 시 다른 사용자에게 알림.
 
-## 실행
+## 실행 (개발/로컬)
 
 ```bash
 python3 -m venv .venv
@@ -42,6 +42,26 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 브라우저에서 `http://<서버주소>:8000` 접속.
+
+## 사내 서버 배포
+
+Ubuntu/Debian 서버에서 저장소를 받은 뒤 한 줄로 설치한다:
+
+```bash
+git clone https://github.com/annayoon/docportal.git && cd docportal
+sudo bash deploy/install.sh
+```
+
+스크립트가 하는 일: 서비스 계정 생성 → `/opt/docportal`(코드)·`/var/lib/docportal`(데이터)
+배치 → venv/의존성 설치 → **systemd 서비스 등록**(부팅 자동 시작, 죽으면 재시작) →
+**nginx 리버스 프록시** 등록. 재실행해도 안전해서 코드 업데이트 배포에도 그대로 쓴다.
+
+- 도메인: `deploy/nginx.conf`의 `server_name`을 사내 DNS 이름으로 수정
+- 환경변수(SMTP·Ollama·BASE_URL 등): `deploy/docportal.service`에서 주석 해제
+- HTTPS 운영 시: nginx에 TLS 설정 후 `DOCPORTAL_SECURE_COOKIES=1` 활성화
+- 형식 변환(PDF/Word) 기능: 서버에 LibreOffice 설치 (`install.sh` 내 주석 참고)
+- 백업: `/var/lib/docportal` 디렉토리 하나만 챙기면 됨 (DB + 업로드 원본)
+- 상태 확인: `systemctl status docportal` / 로그: `journalctl -u docportal -f`
 
 ## 이메일 인증 설정 (선택)
 

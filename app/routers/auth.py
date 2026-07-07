@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
 from ..auth import create_session, destroy_session, hash_password, is_allowed_email, verify_password
-from ..config import ALLOWED_EMAIL_DOMAIN, SESSION_COOKIE, smtp_configured
+from ..config import ALLOWED_EMAIL_DOMAIN, SECURE_COOKIES, SESSION_COOKIE, smtp_configured
 from ..db import get_conn
 from ..services.mailer import send_verification_email
 from ..templating import templates
@@ -184,7 +184,8 @@ def login(
 
     resp = RedirectResponse(next or "/", status_code=303)
     resp.set_cookie(
-        SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=60 * 60 * 24 * 30
+        SESSION_COOKIE, token, httponly=True, samesite="lax",
+        secure=SECURE_COOKIES, max_age=60 * 60 * 24 * 30,
     )
     return resp
 

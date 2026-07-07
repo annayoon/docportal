@@ -1,0 +1,37 @@
+# DocPortal systemd 서비스 유닛
+# 설치 위치: /etc/systemd/system/docportal.service
+# 적용: sudo systemctl daemon-reload && sudo systemctl enable --now docportal
+
+[Unit]
+Description=DocPortal - 전사 문서 포털
+After=network.target
+
+[Service]
+User=docportal
+Group=docportal
+WorkingDirectory=/opt/docportal
+# 데이터(DB + 업로드 원본)는 코드와 분리해 보관 — 백업은 이 디렉토리만
+Environment=DOCPORTAL_DATA=/var/lib/docportal
+# 인증 메일 링크에 들어갈 주소 (사내 DNS에 맞게 수정)
+#Environment=DOCPORTAL_BASE_URL=http://docs.example.com
+# HTTPS(nginx TLS) 뒤에서 운영 시 활성화
+#Environment=DOCPORTAL_SECURE_COOKIES=1
+# Ollama 요약 (서버에 Ollama 설치 시)
+#Environment=DOCPORTAL_OLLAMA_URL=http://localhost:11434
+#Environment=DOCPORTAL_OLLAMA_MODEL=gemma4:12b
+# SMTP 인증 메일 (사용 시)
+#Environment=DOCPORTAL_SMTP_USER=portal@example.com
+#Environment=DOCPORTAL_SMTP_PASSWORD=...
+# nginx가 앞단이므로 로컬에만 바인딩
+ExecStart=/opt/docportal/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=3
+
+# 보안 강화 (선택)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/docportal
+
+[Install]
+WantedBy=multi-user.target
