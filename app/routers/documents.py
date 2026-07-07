@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 
 import markdown as md
@@ -8,9 +9,26 @@ from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
 from ..services import storage
 from ..services.extractor import extract_text
+from ..services.summarizer import summarize
 from ..templating import templates
 
 router = APIRouter()
+
+# 브라우저가 자체 렌더링할 수 있는 형식 → 미리보기 방식 결정
+_PREVIEW_IFRAME = {".pdf"}
+_PREVIEW_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+
+
+def _preview_kind(filename: str | None, content_text: str) -> str | None:
+    if filename:
+        suffix = Path(filename).suffix.lower()
+        if suffix in _PREVIEW_IFRAME:
+            return "pdf"
+        if suffix in _PREVIEW_IMAGE:
+            return "image"
+    if content_text.strip():
+        return "text"
+    return None
 
 
 def _departments(conn):
@@ -100,14 +118,18 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         if v is not None:
             shown = next((x for x in versions if x["version_no"] == v), shown)
         rendered = None
+        preview = None
         if doc["doc_type"] == "wiki":
             rendered = md.markdown(
                 shown["content_text"], extensions=["tables", "fenced_code", "toc"]
             )
+        else:
+            preview = _preview_kind(shown["filename"], shown["content_text"])
         return templates.TemplateResponse(
             request,
             "document.html",
-            {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered},
+            {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered,
+             "preview": preview},
         )
     finally:
         conn.close()
@@ -168,6 +190,49 @@ def download(version_id: int):
     if not path.exists():
         raise HTTPException(404, "저장된 파일이 없습니다.")
     return FileResponse(path, filename=ver["filename"])
+
+
+@router.get("/versions/{version_id}/preview")
+def preview_file(version_id: int):
+    """다운로드 없이 브라우저에서 바로 열리도록 inline으로 서빙 (PDF/이미지용)."""
+    conn = get_conn()
+    try:
+        ver = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,)).fetchone()
+    finally:
+        conn.close()
+    if ver is None or not ver["stored_name"]:
+        raise HTTPException(404, "파일을 찾을 수 없습니다.")
+    path = storage.file_path(ver["stored_name"])
+    if not path.exists():
+        raise HTTPException(404, "저장된 파일이 없습니다.")
+    media_type, _ = mimetypes.guess_type(ver["filename"] or "")
+    return FileResponse(
+        path,
+        media_type=media_type or "application/octet-stream",
+        filename=ver["filename"],
+        content_disposition_type="inline",
+    )
+
+
+@router.post("/documents/{doc_id}/summarize")
+def summarize_document(doc_id: int, current_user=Depends(get_current_user)):
+    """최신 버전 본문을 요약해 버전에 캐시한다. (Ollama 없으면 추출 요약)"""
+    conn = get_conn()
+    try:
+        latest = conn.execute(
+            "SELECT * FROM versions WHERE document_id = ? ORDER BY version_no DESC LIMIT 1",
+            (doc_id,),
+        ).fetchone()
+        if latest is None:
+            raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        if not latest["content_text"].strip():
+            raise HTTPException(400, "추출된 본문이 없어 요약할 수 없습니다.")
+        summary = summarize(latest["content_text"])
+        conn.execute("UPDATE versions SET summary = ? WHERE id = ?", (summary, latest["id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
 @router.post("/documents/{doc_id}/delete")

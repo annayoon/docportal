@@ -26,6 +26,42 @@
     </div>
   </div>
 
+  <section class="summary-card">
+    <div class="section-head">
+      <h2>📝 요약</h2>
+      <form action="/documents/{{ doc.id }}/summarize" method="post" class="inline-form"
+            onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = '요약 생성 중…';">
+        <button type="submit" class="btn">{{ '다시 생성' if versions[0].summary else '요약 생성' }}</button>
+      </form>
+    </div>
+    {% if versions[0].summary %}
+    <div class="summary-body">{{ versions[0].summary }}</div>
+    {% else %}
+    <p class="empty-inline">아직 요약이 없습니다. [요약 생성]을 누르면 최신 버전 내용을 요약합니다.</p>
+    {% endif %}
+  </section>
+
+  {% if preview == 'pdf' %}
+  <section>
+    <h2>미리보기</h2>
+    <iframe class="preview-frame" src="/versions/{{ shown.id }}/preview" title="PDF 미리보기"></iframe>
+  </section>
+  {% elif preview == 'image' %}
+  <section>
+    <h2>미리보기</h2>
+    <img class="preview-image" src="/versions/{{ shown.id }}/preview" alt="{{ shown.filename }}">
+  </section>
+  {% elif preview == 'text' %}
+  <section>
+    <details class="preview-text" {% if not versions[0].summary %}open{% endif %}>
+      <summary>미리보기 — 추출된 본문 텍스트</summary>
+      <pre>{{ shown.content_text[:5000] }}{% if shown.content_text | length > 5000 %}
+
+… (이하 생략 — 전체 내용은 파일 다운로드){% endif %}</pre>
+    </details>
+  </section>
+  {% endif %}
+
   {% if rendered %}
   <div class="wiki-body">
     {% if shown.version_no != versions[0].version_no %}

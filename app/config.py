@@ -30,5 +30,11 @@ def smtp_configured() -> bool:
     return bool(SMTP_USER and SMTP_PASSWORD)
 
 
+# 문서 요약 — Ollama가 있으면 LLM 요약, 없으면 빈도 기반 추출 요약으로 폴백
+OLLAMA_URL = os.environ.get("DOCPORTAL_OLLAMA_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.environ.get("DOCPORTAL_OLLAMA_MODEL", "llama3.2")
+SUMMARY_INPUT_LEN = 8_000   # 요약에 넣을 본문 최대 길이 (문자)
+
+
 def ensure_dirs() -> None:
     FILES_DIR.mkdir(parents=True, exist_ok=True)

@@ -98,6 +98,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE users SET email_verified = 1")
     if "verify_token" not in user_cols:
         conn.execute("ALTER TABLE users ADD COLUMN verify_token TEXT")
+    version_cols = {row["name"] for row in conn.execute("PRAGMA table_info(versions)")}
+    if "summary" not in version_cols:
+        conn.execute("ALTER TABLE versions ADD COLUMN summary TEXT")
 
 
 def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
