@@ -33,6 +33,53 @@ def _preview_kind(filename: str | None, content_text: str) -> str | None:
     return None
 
 
+def _related_docs(conn, doc_id: int, keywords: str | None, tags: str | None, limit: int = 5):
+    """키워드/태그가 겹치는 다른 문서를 겹침 개수 순으로 찾는다."""
+    raw = [t.strip() for t in f"{keywords or ''},{tags or ''}".split(",") if t.strip()]
+    if not raw:
+        return []
+    # '개인정보 처리방침' 같은 복합 키워드는 단어 단위로도 매칭한다
+    terms: list[str] = []
+    for t in raw:
+        for part in [t, *t.split()]:
+            if len(part) >= 2 and part not in terms:
+                terms.append(part)
+    scores: dict[int, int] = {}
+    for term in terms[:20]:
+        if len(term) >= 3:
+            # 제목/태그/키워드 컬럼만 대상으로 매칭 (본문 언급만으로는 연관 취급 안 함)
+            rows = conn.execute(
+                "SELECT rowid FROM fts WHERE fts MATCH ? AND rowid != ?",
+                (f'{{title tags keywords}} : "{term}"', doc_id),
+            ).fetchall()
+        else:
+            # 3자 미만은 trigram 인덱스를 못 타므로 LIKE로 대체
+            like = f"%{term}%"
+            rows = conn.execute(
+                "SELECT DISTINCT d.id AS rowid FROM documents d "
+                "JOIN versions v ON v.document_id = d.id AND v.version_no = "
+                "  (SELECT MAX(version_no) FROM versions WHERE document_id = d.id) "
+                "WHERE d.id != ? AND (d.title LIKE ? OR d.tags LIKE ? OR v.keywords LIKE ?)",
+                (doc_id, like, like, like),
+            ).fetchall()
+        for r in rows:
+            scores[r["rowid"]] = scores.get(r["rowid"], 0) + 1
+    if not scores:
+        return []
+    top = sorted(scores.items(), key=lambda x: -x[1])[:limit]
+    placeholders = ",".join("?" for _ in top)
+    docs = {
+        d["id"]: d
+        for d in conn.execute(
+            f"SELECT * FROM documents WHERE id IN ({placeholders})", [i for i, _ in top]
+        ).fetchall()
+    }
+    return [
+        {"doc": docs[i], "overlap": n}
+        for i, n in top if i in docs
+    ]
+
+
 def _departments(conn):
     rows = conn.execute(
         "SELECT DISTINCT department FROM documents WHERE department != '' ORDER BY department"
@@ -129,11 +176,12 @@ def detail(request: Request, doc_id: int, v: int | None = None):
             )
         else:
             preview = _preview_kind(shown["filename"], shown["content_text"])
+        related = _related_docs(conn, doc_id, versions[0]["keywords"], doc["tags"])
         return templates.TemplateResponse(
             request,
             "document.html",
             {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered,
-             "preview": preview},
+             "preview": preview, "related": related},
         )
     finally:
         conn.close()

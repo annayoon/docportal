@@ -80,6 +80,22 @@
   </div>
   {% endif %}
 
+  {% if related %}
+  <section class="related">
+    <h2>🔗 연관 문서</h2>
+    <ul class="related-list">
+      {% for r in related %}
+      <li>
+        <a href="/documents/{{ r.doc.id }}">{{ r.doc.title }}</a>
+        {% if r.doc.doc_type == 'wiki' %}<span class="badge wiki">위키</span>{% endif %}
+        {% if r.doc.department %}<span class="badge dept">{{ r.doc.department }}</span>{% endif %}
+        <span class="overlap">키워드 {{ r.overlap }}개 일치</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   <section>
     <h2>버전 이력</h2>
     <table class="doc-table">
