@@ -168,6 +168,22 @@ mark { background: var(--mark); padding: 0 2px; border-radius: 2px; }
 
 .admin-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
+.stat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px; margin: 12px 0 32px;
+}
+.stat-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px 20px;
+}
+.stat-value { font-size: 1.35rem; font-weight: 700; }
+.stat-label { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+.bar-cell { width: 40%; }
+.bar {
+  height: 10px; border-radius: 999px; background: var(--primary);
+  min-width: 2px; opacity: 0.75;
+}
+
 .bell { position: relative; }
 .badge-count {
   position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;

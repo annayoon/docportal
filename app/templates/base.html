@@ -19,6 +19,7 @@
       <a class="btn bell" href="/notifications">🔔{% if request.state.unread_count %}<span class="badge-count">{{ request.state.unread_count }}</span>{% endif %}</a>
       {% if request.state.user.role == 'admin' %}
       <a class="btn" href="/admin/users">👤 사용자 관리</a>
+      <a class="btn" href="/admin/storage">📦 저장소</a>
       {% endif %}
       <span class="user-chip">{{ request.state.user.email }}{% if request.state.user.department %} · {{ request.state.user.department }}{% endif %}</span>
       <form action="/logout" method="post" class="inline-form">

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}저장소 현황{% endblock %}
+{% block content %}
+<section>
+  <h2>저장소 현황</h2>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ physical | filesize }}</div>
+      <div class="stat-label">실제 파일 용량</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ db_size | filesize }}</div>
+      <div class="stat-label">DB (검색 인덱스 포함)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ saved | filesize }}</div>
+      <div class="stat-label">중복 제거로 절약</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ totals.docs }}건 / {{ totals.versions }}개</div>
+      <div class="stat-label">문서 / 버전</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ disk_free | filesize }}</div>
+      <div class="stat-label">디스크 여유 (전체 {{ disk_total | filesize }})</div>
+    </div>
+  </div>
+
+  <h2>부서별 사용량</h2>
+  {% if by_dept %}
+  <table class="doc-table">
+    <thead><tr><th>부서</th><th>문서</th><th>버전</th><th>용량</th><th></th></tr></thead>
+    <tbody>
+      {% for d in by_dept %}
+      <tr>
+        <td>{{ d.department }}</td>
+        <td>{{ d.docs }}</td>
+        <td>{{ d.versions }}</td>
+        <td>{{ d.size | filesize }}</td>
+        <td class="bar-cell">
+          <div class="bar" style="width: {{ (d.size / max_size * 100) | round(1) if max_size else 0 }}%"></div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">아직 업로드된 문서가 없습니다.</p>
+  {% endif %}
+</section>
+{% endblock %}
