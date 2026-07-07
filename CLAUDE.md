@@ -21,7 +21,8 @@ uvicorn app.main:app --port 8001 --reload
   (`doc_type='wiki'`, `content_text`에 마크다운, 파일 필드는 NULL)
 - 파일 저장: SHA-256 해시 기반 중복 제거, `data/files/<해시앞2자>/<해시>`
 - 텍스트 추출: `app/services/extractor.py` — PDF/DOCX/PPTX/XLSX/HWP/텍스트.
-  HWP는 PrvText(미리보기) 스트림만 읽음 (전문 아님). 추출 실패는 삼키고 빈 문자열.
+  HWP는 BodyText/Section* 스트림을 직접 파싱해 전문 추출 (표·각주·머리말 포함),
+  암호화/배포용 문서는 PrvText(미리보기)로 폴백. 추출 실패는 삼키고 빈 문자열.
 - `data/`는 gitignore — DB와 업로드 원본이 들어 있으니 삭제 주의
 - 인증: `app/auth.py` + `app/routers/auth.py`. 외부 서비스 없이 stdlib만 사용
   (비밀번호는 PBKDF2-SHA256, 세션은 DB `sessions` 테이블 + 랜덤 토큰 쿠키).
@@ -50,5 +51,5 @@ uvicorn app.main:app --port 8001 --reload
    승인. 단, 조회/업로드는 부서 제한 없음(삭제만 작성자/관리자 제한)으로 구현
 2. ~~문서 승인(결재) 워크플로우~~ — 결재 단계는 필요 없다고 판단, 대신 업로드·
    편집 시 인앱 알림(브로드캐스트)으로 대체 구현
-3. HWP 전문 추출 (hwp5 파싱)
+3. ~~HWP 전문 추출~~ — 완료. HWP 5.x 레코드 직접 파싱 (extractor.py)
 4. 규모 확장 시 PostgreSQL + 전용 검색엔진 이전
