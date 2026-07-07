@@ -32,7 +32,7 @@ def smtp_configured() -> bool:
 
 # 문서 요약 — Ollama가 있으면 LLM 요약, 없으면 빈도 기반 추출 요약으로 폴백
 OLLAMA_URL = os.environ.get("DOCPORTAL_OLLAMA_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.environ.get("DOCPORTAL_OLLAMA_MODEL", "llama3.2")
+OLLAMA_MODEL = os.environ.get("DOCPORTAL_OLLAMA_MODEL", "gemma4:12b")
 SUMMARY_INPUT_LEN = 8_000   # 요약에 넣을 본문 최대 길이 (문자)
 
 

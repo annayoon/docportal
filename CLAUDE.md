@@ -53,7 +53,7 @@ uvicorn app.main:app --port 8001 --reload
 - 미리보기/요약: 상세 페이지에서 PDF·이미지는 `/versions/{id}/preview`(inline)로
   브라우저 렌더링, 그 외는 `content_text` 표시. 요약은 `versions.summary`에
   캐시 — `app/services/summarizer.py`가 Ollama(`DOCPORTAL_OLLAMA_URL`, 기본
-  localhost:11434, 모델 `DOCPORTAL_OLLAMA_MODEL` 기본 llama3.2) 시도 후 실패하면
+  localhost:11434, 모델 `DOCPORTAL_OLLAMA_MODEL` 기본 gemma4:12b) 시도 후 실패하면
   빈도 기반 추출 요약으로 폴백. 사내 서버에 Ollama 없어도 동작.
 
 ## 로드맵 (우선순위 순)
