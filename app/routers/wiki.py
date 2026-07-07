@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
+from ..services.summarizer import summarize_version
 from ..templating import templates
 
 router = APIRouter(prefix="/wiki")
@@ -15,6 +16,7 @@ def new_page(request: Request):
 
 @router.post("/new")
 def create_page(
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     department: str = Form(""),
     tags: str = Form(""),
@@ -29,11 +31,11 @@ def create_page(
             (title.strip(), department.strip(), tags.strip(), current_user["id"]),
         )
         doc_id = cur.lastrowid
-        conn.execute(
+        version_id = conn.execute(
             "INSERT INTO versions (document_id, version_no, content_text, note) "
             "VALUES (?, 1, ?, '최초 작성')",
             (doc_id, content),
-        )
+        ).lastrowid
         reindex_document(conn, doc_id)
         notify_others(
             conn, current_user["id"], doc_id,
@@ -42,6 +44,7 @@ def create_page(
         conn.commit()
     finally:
         conn.close()
+    background_tasks.add_task(summarize_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -70,6 +73,7 @@ def edit_page(request: Request, doc_id: int):
 @router.post("/{doc_id}/edit")
 def save_page(
     doc_id: int,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     department: str = Form(""),
     tags: str = Form(""),
@@ -93,10 +97,10 @@ def save_page(
             "updated_at = datetime('now','localtime') WHERE id = ?",
             (title.strip(), department.strip(), tags.strip(), doc_id),
         )
-        conn.execute(
+        version_id = conn.execute(
             "INSERT INTO versions (document_id, version_no, content_text, note) VALUES (?, ?, ?, ?)",
             (doc_id, next_no, content, note.strip()),
-        )
+        ).lastrowid
         reindex_document(conn, doc_id)
         notify_others(
             conn, current_user["id"], doc_id,
@@ -105,4 +109,5 @@ def save_page(
         conn.commit()
     finally:
         conn.close()
+    background_tasks.add_task(summarize_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)

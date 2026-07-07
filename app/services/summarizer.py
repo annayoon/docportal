@@ -11,6 +11,27 @@ from ..config import OLLAMA_MODEL, OLLAMA_URL, SUMMARY_INPUT_LEN
 logger = logging.getLogger(__name__)
 
 
+def summarize_version(version_id: int) -> None:
+    """업로드 직후 백그라운드에서 실행 — 버전 본문을 요약해 캐시한다.
+
+    실패해도 업로드에는 영향 없음(수동 [요약 생성] 버튼으로 재시도 가능).
+    """
+    from ..db import get_conn  # 순환 import 방지
+
+    conn = get_conn()
+    try:
+        ver = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,)).fetchone()
+        if ver is None or not ver["content_text"].strip():
+            return
+        summary = summarize(ver["content_text"])
+        conn.execute("UPDATE versions SET summary = ? WHERE id = ?", (summary, version_id))
+        conn.commit()
+    except Exception:
+        logger.exception("자동 요약 실패: version_id=%s", version_id)
+    finally:
+        conn.close()
+
+
 def summarize(text: str) -> str:
     text = text.strip()[:SUMMARY_INPUT_LEN]
     if not text:

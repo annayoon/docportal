@@ -55,6 +55,8 @@ uvicorn app.main:app --port 8001 --reload
   캐시 — `app/services/summarizer.py`가 Ollama(`DOCPORTAL_OLLAMA_URL`, 기본
   localhost:11434, 모델 `DOCPORTAL_OLLAMA_MODEL` 기본 gemma4:12b) 시도 후 실패하면
   빈도 기반 추출 요약으로 폴백. 사내 서버에 Ollama 없어도 동작.
+  업로드/위키 저장 시 FastAPI BackgroundTasks로 **자동 요약** — 응답은 즉시
+  반환되고 요약은 뒤에서 채워진다. [요약 생성/다시 생성] 버튼은 수동 재시도용.
 
 ## 로드맵 (우선순위 순)
 

@@ -2,14 +2,16 @@ import mimetypes
 from pathlib import Path
 
 import markdown as md
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile,
+)
 from fastapi.responses import FileResponse, RedirectResponse
 
 from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
 from ..services import storage
 from ..services.extractor import extract_text
-from ..services.summarizer import summarize
+from ..services.summarizer import summarize, summarize_version
 from ..templating import templates
 
 router = APIRouter()
@@ -65,6 +67,7 @@ def index(request: Request, dept: str = ""):
 
 @router.post("/upload")
 async def upload(
+    background_tasks: BackgroundTasks,
     title: str = Form(""),
     department: str = Form(""),
     tags: str = Form(""),
@@ -87,11 +90,11 @@ async def upload(
             (doc_title, department.strip(), tags.strip(), current_user["id"]),
         )
         doc_id = cur.lastrowid
-        conn.execute(
+        version_id = conn.execute(
             "INSERT INTO versions (document_id, version_no, filename, stored_name, sha256, size, content_text, note) "
             "VALUES (?, 1, ?, ?, ?, ?, ?, ?)",
             (doc_id, filename, stored_name, sha, size, text, note.strip()),
-        )
+        ).lastrowid
         reindex_document(conn, doc_id)
         notify_others(
             conn, current_user["id"], doc_id,
@@ -100,6 +103,7 @@ async def upload(
         conn.commit()
     finally:
         conn.close()
+    background_tasks.add_task(summarize_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -138,6 +142,7 @@ def detail(request: Request, doc_id: int, v: int | None = None):
 @router.post("/documents/{doc_id}/versions")
 async def upload_version(
     doc_id: int,
+    background_tasks: BackgroundTasks,
     note: str = Form(""),
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),
@@ -157,11 +162,11 @@ async def upload_version(
             "SELECT COALESCE(MAX(version_no), 0) + 1 AS n FROM versions WHERE document_id = ?",
             (doc_id,),
         ).fetchone()["n"]
-        conn.execute(
+        version_id = conn.execute(
             "INSERT INTO versions (document_id, version_no, filename, stored_name, sha256, size, content_text, note) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (doc_id, next_no, filename, stored_name, sha, size, text, note.strip()),
-        )
+        ).lastrowid
         conn.execute(
             "UPDATE documents SET updated_at = datetime('now','localtime') WHERE id = ?",
             (doc_id,),
@@ -174,6 +179,7 @@ async def upload_version(
         conn.commit()
     finally:
         conn.close()
+    background_tasks.add_task(summarize_version, version_id)
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
