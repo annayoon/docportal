@@ -1,9 +1,23 @@
+import html as html_lib
+
 from fastapi import APIRouter, Request
 
-from ..db import get_conn
+from ..db import fts_phrase, get_conn
 from ..templating import templates
 
 router = APIRouter()
+
+# 스니펫 하이라이트: 컨트롤 문자를 표지로 쓰고, HTML 이스케이프 후 <mark>로 치환
+# (본문에 악성 HTML이 있어도 그대로 렌더링되지 않도록)
+_SNIP_OPEN, _SNIP_CLOSE = "\x02", "\x03"
+
+
+def _safe_snippet(raw: str) -> str:
+    return (
+        html_lib.escape(raw or "")
+        .replace(_SNIP_OPEN, "<mark>")
+        .replace(_SNIP_CLOSE, "</mark>")
+    )
 
 
 @router.get("/search")
@@ -16,11 +30,11 @@ def search(request: Request, q: str = "", dept: str = ""):
             if len(query) >= 3:
                 # trigram FTS: 제목/본문/태그 전체에서 부분 문자열 매칭
                 sql = (
-                    "SELECT d.*, snippet(fts, 1, '<mark>', '</mark>', '…', 24) AS snip "
+                    f"SELECT d.*, snippet(fts, 1, '{_SNIP_OPEN}', '{_SNIP_CLOSE}', '…', 24) AS snip "
                     "FROM fts JOIN documents d ON d.id = fts.rowid "
                     "WHERE fts MATCH ? "
                 )
-                params: list = [f'"{query}"']
+                params: list = [fts_phrase(query)]
                 if dept:
                     sql += "AND d.department = ? "
                     params.append(dept)
@@ -42,6 +56,8 @@ def search(request: Request, q: str = "", dept: str = ""):
                     params.append(dept)
                 sql += "ORDER BY d.updated_at DESC LIMIT 100"
                 results = conn.execute(sql, params).fetchall()
+        # 스니펫을 이스케이프된 안전한 HTML로 가공 (템플릿에서 | safe 사용)
+        results = [dict(r) | {"snip": _safe_snippet(r["snip"])} for r in results]
         departments = [
             r["department"]
             for r in conn.execute(

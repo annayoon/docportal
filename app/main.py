@@ -45,7 +45,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if not is_public and user is None:
             next_q = f"?next={path}" if request.method == "GET" else ""
             return RedirectResponse(f"/login{next_q}", status_code=303)
-        return await call_next(request)
+        response = await call_next(request)
+        # 브라우저의 콘텐츠 타입 추측(스니핑) 금지 — 업로드 파일 XSS 방어 보강
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        return response
 
 
 app.add_middleware(AuthMiddleware)

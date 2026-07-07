@@ -74,10 +74,22 @@ def approve_user(user_id: int, admin=Depends(get_current_admin)):
     return RedirectResponse("/admin/users", status_code=303)
 
 
+def _is_last_active_admin(conn, user) -> bool:
+    if user is None or user["role"] != "admin" or user["status"] != "approved":
+        return False
+    n = conn.execute(
+        "SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'approved'"
+    ).fetchone()["n"]
+    return n <= 1
+
+
 @router.post("/users/{user_id}/reject")
 def reject_user(user_id: int, admin=Depends(get_current_admin)):
     conn = get_conn()
     try:
+        target = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if _is_last_active_admin(conn, target):
+            raise HTTPException(400, "마지막 관리자는 거부할 수 없습니다.")
         conn.execute("UPDATE users SET status = 'rejected' WHERE id = ?", (user_id,))
         conn.commit()
     finally:
@@ -106,6 +118,8 @@ def toggle_admin(user_id: int, admin=Depends(get_current_admin)):
         user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if user is None:
             raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+        if user["role"] == "admin" and _is_last_active_admin(conn, user):
+            raise HTTPException(400, "마지막 관리자는 해제할 수 없습니다.")
         new_role = "user" if user["role"] == "admin" else "admin"
         conn.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
         conn.commit()

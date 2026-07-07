@@ -86,6 +86,19 @@ uvicorn app.main:app --port 8001 --reload
   nginx.conf(리버스 프록시, client_max_body_size 0 = 업로드 무제한 정책).
   HTTPS 뒤에서는 `DOCPORTAL_SECURE_COOKIES=1`로 세션 쿠키 Secure 플래그.
 
+## 보안 수칙 (2026-07-08 자체 점검에서 적용)
+
+- 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),
+  검색 스니펫은 컨트롤 문자 표지 + escape 후 `<mark>` 치환. 새 `| safe` 사용 금지.
+- FTS MATCH에 사용자 입력을 넣을 땐 반드시 `db.fts_phrase()` 경유.
+- `/versions/{id}/preview`는 `_INLINE_TYPES` 화이트리스트만 인라인 — HTML/SVG 등
+  실행형 콘텐츠는 octet-stream 첨부 강제. 전 응답에 X-Content-Type-Options: nosniff.
+- 로그인 `next`는 내부 경로만 허용(오픈 리다이렉트 방지). 세션은 30일 만료 +
+  로그인 시 만료분 정리. 마지막 관리자는 강등/거부 불가(잠금 방지).
+- HWP 압축 해제는 섹션당 64MB 상한(압축 폭탄 방지). SQLite는 WAL + busy_timeout.
+- **미적용(알려진 한계)**: CSRF 토큰 없음(SameSite=Lax로 완화), 로그인 레이트리밋
+  없음, 변환 요청 큐 없음(동시 대량 변환 시 부하). 필요 시 로드맵에 추가할 것.
+
 ## 로드맵 (우선순위 순)
 
 1. ~~로그인 / 부서별 권한~~ — 완료. 로그인 필수 + 이메일 도메인 가입 + 관리자

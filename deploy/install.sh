@@ -40,6 +40,7 @@ python3 -m venv "$APP_DIR/.venv"
 "$APP_DIR/.venv/bin/pip" install -q --upgrade pip
 "$APP_DIR/.venv/bin/pip" install -q -r "$APP_DIR/requirements.txt"
 chown -R docportal:docportal "$APP_DIR" "$DATA_DIR"
+chmod 750 "$DATA_DIR"   # DB·업로드 원본을 다른 로컬 계정이 읽지 못하게
 
 echo "==> 4/5 systemd 서비스 등록"
 cp "$APP_DIR/deploy/docportal.service" /etc/systemd/system/docportal.service

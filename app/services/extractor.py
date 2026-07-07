@@ -131,7 +131,8 @@ def _hwp_body_text(ole) -> str:
     for entry in sections:
         raw = ole.openstream("/".join(entry)).read()
         if compressed:
-            raw = zlib.decompress(raw, -15)
+            # 압축 폭탄 방지: 섹션당 최대 64MB까지만 해제 (검색 텍스트는 어차피 상한 있음)
+            raw = zlib.decompressobj(-15).decompress(raw, 64 * 1024 * 1024)
         parts.append(_hwp_section_text(raw))
     return "\n".join(p for p in parts if p)
 

@@ -1,14 +1,15 @@
-import mimetypes
+import html as html_lib
 from pathlib import Path
 
 import markdown as md
+import nh3
 from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile,
 )
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
-from ..db import get_conn, notify_others, reindex_document
+from ..db import fts_phrase, get_conn, notify_others, reindex_document
 from ..services import converter, storage
 from ..services.extractor import extract_text
 from ..services.summarizer import analyze, analyze_version
@@ -19,6 +20,19 @@ router = APIRouter()
 # 브라우저가 자체 렌더링할 수 있는 형식 → 미리보기 방식 결정
 _PREVIEW_IFRAME = {".pdf"}
 _PREVIEW_IMAGE = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
+
+# 인라인 서빙을 허용하는 형식만 명시 (HTML/SVG 등 실행형 콘텐츠는 XSS 방지 위해 첨부로 강제)
+_INLINE_TYPES = {
+    ".pdf": "application/pdf",
+    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+    ".txt": "text/plain; charset=utf-8",
+}
+
+
+def _render_markdown(text: str) -> str:
+    """마크다운 → HTML 후 소독. 원문에 심어진 <script> 등 실행형 태그를 제거한다."""
+    return nh3.clean(md.markdown(text, extensions=["tables", "fenced_code", "toc"]))
 
 
 def _preview_kind(filename: str | None, content_text: str) -> str | None:
@@ -50,7 +64,7 @@ def _related_docs(conn, doc_id: int, keywords: str | None, tags: str | None, lim
             # 제목/태그/키워드 컬럼만 대상으로 매칭 (본문 언급만으로는 연관 취급 안 함)
             rows = conn.execute(
                 "SELECT rowid FROM fts WHERE fts MATCH ? AND rowid != ?",
-                (f'{{title tags keywords}} : "{term}"', doc_id),
+                (f"{{title tags keywords}} : {fts_phrase(term)}", doc_id),
             ).fetchall()
         else:
             # 3자 미만은 trigram 인덱스를 못 타므로 LIKE로 대체
@@ -194,9 +208,7 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         rendered = None
         preview = None
         if doc["doc_type"] == "wiki":
-            rendered = md.markdown(
-                shown["content_text"], extensions=["tables", "fenced_code", "toc"]
-            )
+            rendered = _render_markdown(shown["content_text"])
         else:
             preview = _preview_kind(shown["filename"], shown["content_text"])
         related = _related_docs(conn, doc_id, versions[0]["keywords"], doc["tags"])
@@ -268,8 +280,9 @@ _MEDIA_TYPES = {
 
 
 def _wiki_html(title: str, markdown_text: str) -> bytes:
-    """위키 마크다운을 변환/저장용 독립 HTML 문서로 만든다."""
-    body = md.markdown(markdown_text, extensions=["tables", "fenced_code", "toc"])
+    """위키 마크다운을 변환/저장용 독립 HTML 문서로 만든다 (소독 포함)."""
+    body = _render_markdown(markdown_text)
+    title = html_lib.escape(title)
     return (
         "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
         f"<title>{title}</title><style>"
@@ -370,10 +383,16 @@ def preview_file(version_id: int):
     path = storage.file_path(ver["stored_name"])
     if not path.exists():
         raise HTTPException(404, "저장된 파일이 없습니다.")
-    media_type, _ = mimetypes.guess_type(ver["filename"] or "")
+    ext = Path(ver["filename"] or "").suffix.lower()
+    media_type = _INLINE_TYPES.get(ext)
+    if media_type is None:
+        # 화이트리스트 외 형식(HTML/SVG 등)은 브라우저 실행 방지를 위해 첨부 다운로드로
+        return FileResponse(
+            path, filename=ver["filename"], media_type="application/octet-stream"
+        )
     return FileResponse(
         path,
-        media_type=media_type or "application/octet-stream",
+        media_type=media_type,
         filename=ver["filename"],
         content_disposition_type="inline",
     )

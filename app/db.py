@@ -61,13 +61,21 @@ def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # 다중 사용자 환경에서 잠금 대기 (WAL은 init_db에서 한 번 설정되면 유지됨)
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
+
+
+def fts_phrase(text: str) -> str:
+    """사용자 입력을 FTS5 구문 인젝션 없이 안전한 구절 쿼리로 만든다."""
+    return '"' + text.replace('"', '""') + '"'
 
 
 def init_db() -> None:
     ensure_dirs()
     conn = get_conn()
     try:
+        conn.execute("PRAGMA journal_mode = WAL")  # 동시 읽기/쓰기 안정성
         conn.executescript(SCHEMA)
         # trigram 토크나이저: 한국어 부분 문자열 검색 지원 (SQLite 3.34+)
         try:

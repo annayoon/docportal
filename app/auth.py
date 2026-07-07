@@ -42,13 +42,24 @@ def destroy_session(conn: sqlite3.Connection, token: str) -> None:
     conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
 
 
+SESSION_MAX_AGE_DAYS = 30
+
+
 def user_from_token(conn: sqlite3.Connection, token: str) -> sqlite3.Row | None:
     if not token:
         return None
     return conn.execute(
-        "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?",
-        (token,),
+        "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id "
+        "WHERE s.token = ? AND s.created_at >= datetime('now', 'localtime', ?)",
+        (token, f"-{SESSION_MAX_AGE_DAYS} days"),
     ).fetchone()
+
+
+def purge_expired_sessions(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "DELETE FROM sessions WHERE created_at < datetime('now', 'localtime', ?)",
+        (f"-{SESSION_MAX_AGE_DAYS} days",),
+    )
 
 
 def get_current_user(request: Request) -> sqlite3.Row:

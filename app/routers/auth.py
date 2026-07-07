@@ -4,7 +4,10 @@ import secrets
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
-from ..auth import create_session, destroy_session, hash_password, is_allowed_email, verify_password
+from ..auth import (
+    create_session, destroy_session, hash_password, is_allowed_email,
+    purge_expired_sessions, verify_password,
+)
 from ..config import ALLOWED_EMAIL_DOMAIN, SECURE_COOKIES, SESSION_COOKIE, smtp_configured
 from ..db import get_conn
 from ..services.mailer import send_verification_email
@@ -37,8 +40,8 @@ def signup(
     error = None
     if not is_allowed_email(email):
         error = f"회사 이메일(@{ALLOWED_EMAIL_DOMAIN})만 가입할 수 있습니다."
-    elif len(password) < 8:
-        error = "비밀번호는 8자 이상이어야 합니다."
+    elif not 8 <= len(password) <= 128:
+        error = "비밀번호는 8자 이상 128자 이하여야 합니다."
 
     conn = get_conn()
     try:
@@ -178,10 +181,14 @@ def login(
                 status_code=403,
             )
         token = create_session(conn, user["id"])
+        purge_expired_sessions(conn)
         conn.commit()
     finally:
         conn.close()
 
+    # 오픈 리다이렉트 방지: 사이트 내부 경로만 허용
+    if not next.startswith("/") or next.startswith("//"):
+        next = "/"
     resp = RedirectResponse(next or "/", status_code=303)
     resp.set_cookie(
         SESSION_COOKIE, token, httponly=True, samesite="lax",
