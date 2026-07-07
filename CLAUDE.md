@@ -76,6 +76,11 @@ uvicorn app.main:app --port 8001 --reload
   등록 후 홈으로. 부서·태그·비고는 공통. 각 문서마다 `analyze_version`
   백그라운드 태스크, 알림은 다건일 때 'N건' 한 번만 브로드캐스트.
 
+- 형식 변환: `app/services/converter.py`가 LibreOffice(headless)로 변환.
+  `/versions/{id}/download?format=original|pdf|docx|html`. 파일 문서는
+  original(그대로)/pdf(변환), 위키는 html(순수 파이썬)/pdf/docx(LibreOffice).
+  soffice 경로는 자동 탐색 + `DOCPORTAL_SOFFICE`로 지정. 미설치면 원본/HTML만.
+
 ## 로드맵 (우선순위 순)
 
 1. ~~로그인 / 부서별 권한~~ — 완료. 로그인 필수 + 이메일 도메인 가입 + 관리자

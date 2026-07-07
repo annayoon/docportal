@@ -14,8 +14,22 @@
     <div class="doc-actions">
       {% if doc.doc_type == 'wiki' %}
       <a class="btn" href="/wiki/{{ doc.id }}/edit">✏️ 편집</a>
+      {% set vid = versions[0].id %}
+      <div class="download-group">
+        <span class="dl-label">⬇ 내보내기</span>
+        <a class="btn" href="/versions/{{ vid }}/download?format=html">HTML</a>
+        {% if convert_on %}
+        <a class="btn" href="/versions/{{ vid }}/download?format=pdf">PDF</a>
+        <a class="btn" href="/versions/{{ vid }}/download?format=docx">Word</a>
+        {% endif %}
+      </div>
       {% else %}
-      <a class="btn" href="/versions/{{ versions[0].id }}/download">⬇ 최신 버전 다운로드</a>
+      <div class="download-group">
+        <a class="btn" href="/versions/{{ versions[0].id }}/download?format=original">⬇ 원본 다운로드</a>
+        {% if can_pdf %}
+        <a class="btn" href="/versions/{{ versions[0].id }}/download?format=pdf">PDF로 변환 다운로드</a>
+        {% endif %}
+      </div>
       {% endif %}
       {% if request.state.user and (request.state.user.role == 'admin' or request.state.user.id == doc.created_by) %}
       <form action="/documents/{{ doc.id }}/delete" method="post"

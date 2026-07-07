@@ -131,8 +131,15 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .doc-detail .doc-head { margin-bottom: 24px; }
 .doc-detail h1 { margin: 0 0 8px; font-size: 1.6rem; font-weight: 800; }
 .doc-meta { color: var(--muted); font-size: 0.85rem; display: flex; gap: 10px; flex-wrap: wrap; }
-.doc-actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+.doc-actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
 .doc-actions form { margin: 0; }
+.download-group {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 4px 6px 4px 12px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--card);
+}
+.download-group .dl-label { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.download-group .btn { padding: 5px 12px; font-size: 0.85rem; }
 .notice {
   background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
   padding: 8px 14px; font-size: 0.88rem;

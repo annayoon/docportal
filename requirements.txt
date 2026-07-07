@@ -8,3 +8,4 @@ python-docx
 python-pptx
 openpyxl
 olefile
+# 형식 변환 다운로드는 시스템에 LibreOffice(headless) 설치 필요 (pip 아님)

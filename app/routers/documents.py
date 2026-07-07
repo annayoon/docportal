@@ -5,11 +5,11 @@ import markdown as md
 from fastapi import (
     APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile,
 )
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
 from ..db import get_conn, notify_others, reindex_document
-from ..services import storage
+from ..services import converter, storage
 from ..services.extractor import extract_text
 from ..services.summarizer import analyze, analyze_version
 from ..templating import templates
@@ -200,11 +200,17 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         else:
             preview = _preview_kind(shown["filename"], shown["content_text"])
         related = _related_docs(conn, doc_id, versions[0]["keywords"], doc["tags"])
+        # 다운로드 형식 옵션: 위키는 HTML(+변환 시 PDF/Word), 파일은 원본(+변환 시 PDF)
+        src_ext = Path(shown["filename"] or "").suffix.lower() if shown["filename"] else ""
+        can_pdf = doc["doc_type"] == "wiki" or (
+            converter.available() and converter.can_convert(src_ext) and src_ext != ".pdf"
+        )
         return templates.TemplateResponse(
             request,
             "document.html",
             {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered,
-             "preview": preview, "related": related},
+             "preview": preview, "related": related,
+             "convert_on": converter.available(), "can_pdf": can_pdf},
         )
     finally:
         conn.close()
@@ -254,19 +260,101 @@ async def upload_version(
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
+_MEDIA_TYPES = {
+    "pdf": "application/pdf",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "html": "text/html; charset=utf-8",
+}
+
+
+def _wiki_html(title: str, markdown_text: str) -> bytes:
+    """위키 마크다운을 변환/저장용 독립 HTML 문서로 만든다."""
+    body = md.markdown(markdown_text, extensions=["tables", "fenced_code", "toc"])
+    return (
+        "<!doctype html><html lang='ko'><head><meta charset='utf-8'>"
+        f"<title>{title}</title><style>"
+        "body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;"
+        "line-height:1.7;max-width:720px;margin:24px auto;padding:0 16px;}"
+        "h1,h2,h3{margin-top:1.4em;} table{border-collapse:collapse;}"
+        "th,td{border:1px solid #ccc;padding:6px 12px;} "
+        "pre{background:#f3f4f6;padding:12px;border-radius:6px;overflow-x:auto;}"
+        f"</style></head><body><h1>{title}</h1>{body}</body></html>"
+    ).encode()
+
+
+def _safe_name(name: str) -> str:
+    keep = "".join(c if c.isalnum() or c in " ._-()[]가-힣" else "_" for c in name)
+    return keep.strip() or "document"
+
+
 @router.get("/versions/{version_id}/download")
-def download(version_id: int):
+def download(version_id: int, format: str = "original"):
     conn = get_conn()
     try:
         ver = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,)).fetchone()
+        doc = (
+            conn.execute("SELECT * FROM documents WHERE id = ?", (ver["document_id"],)).fetchone()
+            if ver else None
+        )
     finally:
         conn.close()
-    if ver is None or not ver["stored_name"]:
+    if ver is None or doc is None:
+        raise HTTPException(404, "문서를 찾을 수 없습니다.")
+
+    # 위키 문서: 원본 파일이 없으므로 HTML로 만들어 내보낸다 (html/pdf/docx)
+    if doc["doc_type"] == "wiki":
+        target = format if format in ("html", "pdf", "docx") else "html"
+        html = _wiki_html(doc["title"], ver["content_text"] or "")
+        base = _safe_name(doc["title"])
+        if target == "html":
+            data = html
+        else:
+            if not converter.available():
+                raise HTTPException(503, "형식 변환 기능(LibreOffice)이 서버에 설정되어 있지 않습니다.")
+            try:
+                data = converter.convert(html, ".html", target)
+            except Exception:
+                raise HTTPException(500, "문서 변환에 실패했습니다.")
+        return Response(
+            content=data,
+            media_type=_MEDIA_TYPES[target],
+            headers={"Content-Disposition": _disposition(f"{base}.{target}")},
+        )
+
+    # 파일 문서
+    if not ver["stored_name"]:
         raise HTTPException(404, "파일을 찾을 수 없습니다.")
     path = storage.file_path(ver["stored_name"])
     if not path.exists():
         raise HTTPException(404, "저장된 파일이 없습니다.")
-    return FileResponse(path, filename=ver["filename"])
+    src_ext = Path(ver["filename"] or "").suffix.lower()
+
+    # 원본 그대로 (또는 요청 형식이 이미 원본과 같은 경우)
+    if format == "original" or src_ext == f".{format}":
+        return FileResponse(path, filename=ver["filename"])
+
+    # PDF로 변환 다운로드
+    if format == "pdf":
+        if not converter.can_convert(src_ext):
+            raise HTTPException(400, "이 형식은 PDF 변환을 지원하지 않습니다.")
+        try:
+            data = converter.convert(path.read_bytes(), src_ext, "pdf")
+        except Exception:
+            raise HTTPException(500, "PDF 변환에 실패했습니다.")
+        base = _safe_name(Path(ver["filename"] or "document").stem)
+        return Response(
+            content=data,
+            media_type=_MEDIA_TYPES["pdf"],
+            headers={"Content-Disposition": _disposition(f"{base}.pdf")},
+        )
+
+    raise HTTPException(400, "지원하지 않는 다운로드 형식입니다.")
+
+
+def _disposition(filename: str) -> str:
+    from urllib.parse import quote
+
+    return f"attachment; filename*=UTF-8''{quote(filename)}"
 
 
 @router.get("/versions/{version_id}/preview")

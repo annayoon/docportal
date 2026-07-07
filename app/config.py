@@ -14,6 +14,10 @@ ALLOWED_EMAIL_DOMAIN = os.environ.get("DOCPORTAL_EMAIL_DOMAIN", "atto-research.c
 
 SESSION_COOKIE = "docportal_session"
 
+# 문서 형식 변환(LibreOffice headless) — 미설치면 원본 다운로드만 제공.
+# 실행 파일 경로를 직접 지정하려면 DOCPORTAL_SOFFICE 설정.
+SOFFICE_BIN = os.environ.get("DOCPORTAL_SOFFICE", "")
+
 # SMTP 설정 — USER/PASSWORD가 모두 있으면 가입 인증 메일을 발송한다.
 # Gmail(Google Workspace)은 2단계 인증 + 앱 비밀번호 필요: https://myaccount.google.com/apppasswords
 SMTP_HOST = os.environ.get("DOCPORTAL_SMTP_HOST", "smtp.gmail.com")
