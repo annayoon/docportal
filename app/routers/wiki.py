@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Re
 from fastapi.responses import RedirectResponse
 
 from ..auth import get_current_user
-from ..db import get_conn, notify_others, reindex_document
+from ..db import get_conn, log_activity, notify_others, reindex_document
 from ..services.summarizer import analyze_version
 from ..templating import templates
 
@@ -37,6 +37,7 @@ def create_page(
             (doc_id, content),
         ).lastrowid
         reindex_document(conn, doc_id)
+        log_activity(conn, current_user["id"], "wiki_create", doc_id, title.strip())
         notify_others(
             conn, current_user["id"], doc_id,
             f"{current_user['email']}님이 새 위키 문서를 작성했습니다: {title.strip()}",
@@ -102,6 +103,7 @@ def save_page(
             (doc_id, next_no, content, note.strip()),
         ).lastrowid
         reindex_document(conn, doc_id)
+        log_activity(conn, current_user["id"], "wiki_edit", doc_id, f"{title.strip()} (v{next_no})")
         notify_others(
             conn, current_user["id"], doc_id,
             f"{current_user['email']}님이 위키 문서를 수정했습니다: {title.strip()}",

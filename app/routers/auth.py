@@ -9,7 +9,7 @@ from ..auth import (
     purge_expired_sessions, verify_password,
 )
 from ..config import ALLOWED_EMAIL_DOMAIN, SECURE_COOKIES, SESSION_COOKIE, smtp_configured
-from ..db import get_conn
+from ..db import get_conn, log_activity
 from ..services.mailer import send_verification_email
 from ..templating import templates
 
@@ -182,6 +182,7 @@ def login(
             )
         token = create_session(conn, user["id"])
         purge_expired_sessions(conn)
+        log_activity(conn, user["id"], "login")
         conn.commit()
     finally:
         conn.close()

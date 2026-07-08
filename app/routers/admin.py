@@ -1,14 +1,104 @@
 import shutil
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ..auth import get_current_admin
 from ..config import DATA_DIR, DB_PATH
-from ..db import get_conn
+from ..db import get_conn, log_activity
 from ..templating import templates
 
 router = APIRouter(prefix="/admin")
+
+# 활동 로그 액션 → 한글 라벨
+ACTION_LABELS = {
+    "login": "로그인",
+    "upload": "문서 업로드",
+    "version": "새 버전",
+    "wiki_create": "위키 작성",
+    "wiki_edit": "위키 수정",
+    "delete": "문서 삭제",
+    "download": "다운로드",
+}
+
+
+@router.get("/documents")
+def manage_documents(request: Request, dept: str = "", q: str = "", admin=Depends(get_current_admin)):
+    conn = get_conn()
+    try:
+        sql = (
+            "SELECT d.*, u.email AS creator, v.version_no, v.size, "
+            "  (SELECT COALESCE(SUM(size), 0) FROM versions WHERE document_id = d.id) AS total_size "
+            "FROM documents d "
+            "LEFT JOIN users u ON u.id = d.created_by "
+            "JOIN versions v ON v.document_id = d.id AND v.version_no = "
+            "  (SELECT MAX(version_no) FROM versions WHERE document_id = d.id) "
+            "WHERE 1=1 "
+        )
+        params: list = []
+        if dept:
+            sql += "AND d.department = ? "
+            params.append(dept)
+        if q.strip():
+            sql += "AND d.title LIKE ? "
+            params.append(f"%{q.strip()}%")
+        sql += "ORDER BY d.updated_at DESC LIMIT 500"
+        docs = conn.execute(sql, params).fetchall()
+        departments = [
+            r["department"]
+            for r in conn.execute(
+                "SELECT DISTINCT department FROM documents WHERE department != '' ORDER BY department"
+            ).fetchall()
+        ]
+        return templates.TemplateResponse(
+            request,
+            "admin_documents.html",
+            {"docs": docs, "departments": departments, "dept": dept, "q": q.strip()},
+        )
+    finally:
+        conn.close()
+
+
+@router.post("/documents/bulk-delete")
+def bulk_delete(request: Request, doc_ids: list[int] = Form(...), admin=Depends(get_current_admin)):
+    conn = get_conn()
+    try:
+        for doc_id in doc_ids:
+            doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+            if doc is None:
+                continue
+            conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+            conn.execute("DELETE FROM fts WHERE rowid = ?", (doc_id,))
+            log_activity(conn, admin["id"], "delete", doc_id, f"{doc['title']} (일괄 삭제)")
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse("/admin/documents", status_code=303)
+
+
+@router.get("/activity")
+def activity(request: Request, action: str = "", admin=Depends(get_current_admin)):
+    conn = get_conn()
+    try:
+        sql = (
+            "SELECT a.*, u.email, d.title AS doc_title "
+            "FROM activity_log a "
+            "LEFT JOIN users u ON u.id = a.user_id "
+            "LEFT JOIN documents d ON d.id = a.document_id "
+        )
+        params: list = []
+        if action in ACTION_LABELS:
+            sql += "WHERE a.action = ? "
+            params.append(action)
+        sql += "ORDER BY a.id DESC LIMIT 200"
+        rows = conn.execute(sql, params).fetchall()
+        return templates.TemplateResponse(
+            request,
+            "admin_activity.html",
+            {"rows": rows, "action": action, "labels": ACTION_LABELS},
+        )
+    finally:
+        conn.close()
 
 
 @router.get("/users")
@@ -47,6 +137,32 @@ def storage_stats(request: Request, admin=Depends(get_current_admin)):
             "FROM documents d JOIN versions v ON v.document_id = d.id "
             "GROUP BY 1 ORDER BY size DESC"
         ).fetchall()
+        # 최근 14일 업로드 추이 (버전 등록 기준 — 위키 수정 포함)
+        daily_rows = {
+            r["d"]: r["n"]
+            for r in conn.execute(
+                "SELECT date(created_at) AS d, COUNT(*) AS n FROM versions "
+                "WHERE created_at >= date('now', 'localtime', '-13 days') GROUP BY 1"
+            ).fetchall()
+        }
+        from datetime import date, timedelta
+
+        today = date.today()
+        trend = [
+            {
+                "day": (today - timedelta(days=offset)).strftime("%m-%d"),
+                "count": daily_rows.get((today - timedelta(days=offset)).isoformat(), 0),
+            }
+            for offset in range(13, -1, -1)
+        ]
+        trend_max = max((t["count"] for t in trend), default=0) or 1
+        # 최근 30일 최다 다운로드 문서 (활동 로그 기준)
+        top_downloads = conn.execute(
+            "SELECT a.document_id, COALESCE(d.title, '(삭제된 문서)') AS title, COUNT(*) AS n "
+            "FROM activity_log a LEFT JOIN documents d ON d.id = a.document_id "
+            "WHERE a.action = 'download' AND a.created_at >= date('now', 'localtime', '-30 days') "
+            "GROUP BY a.document_id ORDER BY n DESC LIMIT 5"
+        ).fetchall()
     finally:
         conn.close()
     db_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
@@ -59,6 +175,7 @@ def storage_stats(request: Request, admin=Depends(get_current_admin)):
             "db_size": db_size, "totals": totals, "by_dept": by_dept,
             "disk_total": disk.total, "disk_free": disk.free,
             "max_size": by_dept[0]["size"] if by_dept else 0,
+            "trend": trend, "trend_max": trend_max, "top_downloads": top_downloads,
         },
     )
 

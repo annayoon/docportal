@@ -27,6 +27,32 @@
     </div>
   </div>
 
+  <h2>최근 14일 업로드 추이</h2>
+  <div class="trend">
+    {% for t in trend %}
+    <div class="trend-col" title="{{ t.day }}: {{ t.count }}건">
+      <div class="trend-bar" style="height: {{ (t.count / trend_max * 100) | round(0) }}%"></div>
+      <div class="trend-count">{{ t.count if t.count else '' }}</div>
+      <div class="trend-day">{{ t.day }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if top_downloads %}
+  <h2>최근 30일 최다 다운로드</h2>
+  <table class="doc-table" style="margin-bottom: 32px;">
+    <thead><tr><th>문서</th><th>다운로드</th></tr></thead>
+    <tbody>
+      {% for t in top_downloads %}
+      <tr>
+        <td>{% if t.title != '(삭제된 문서)' %}<a href="/documents/{{ t.document_id }}">{{ t.title }}</a>{% else %}{{ t.title }}{% endif %}</td>
+        <td>{{ t.n }}회</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   <h2>부서별 사용량</h2>
   {% if by_dept %}
   <table class="doc-table">

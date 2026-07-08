@@ -246,6 +246,28 @@ mark { background: var(--mark); padding: 0 2px; border-radius: 2px; }
   min-width: 2px;
 }
 
+.inline-filter { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.inline-filter input, .inline-filter select {
+  padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 0.9rem; background: var(--card);
+}
+.bulk-actions { margin-top: 12px; }
+.nowrap { white-space: nowrap; }
+.muted-cell { color: var(--muted); font-size: 0.85rem; }
+
+.trend {
+  display: flex; align-items: flex-end; gap: 6px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px 20px 12px; margin: 12px 0 32px; height: 160px; box-shadow: var(--shadow-sm);
+}
+.trend-col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+.trend-bar {
+  width: 70%; min-height: 2px; border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, #60a5fa, var(--primary));
+}
+.trend-count { font-size: 0.72rem; color: var(--muted); order: -1; margin-bottom: 2px; }
+.trend-day { font-size: 0.68rem; color: var(--muted); margin-top: 6px; white-space: nowrap; }
+
 .bell { position: relative; }
 .badge-count {
   position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;

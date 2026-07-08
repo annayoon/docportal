@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,                     -- login|upload|version|wiki_create|wiki_edit|delete|download
+  document_id INTEGER,                      -- 삭제된 문서 추적을 위해 FK 없이 보관
+  detail TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
 """
 
 
@@ -139,6 +150,17 @@ def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
     conn.execute(
         "INSERT INTO fts(rowid, title, content, tags, keywords) VALUES (?, ?, ?, ?, ?)",
         (doc_id, doc["title"], content, doc["tags"], keywords),
+    )
+
+
+def log_activity(
+    conn: sqlite3.Connection, user_id: int | None, action: str,
+    doc_id: int | None = None, detail: str = "",
+) -> None:
+    """감사용 활동 기록. 호출부 트랜잭션에 편승한다 (commit은 호출부 책임)."""
+    conn.execute(
+        "INSERT INTO activity_log (user_id, action, document_id, detail) VALUES (?, ?, ?, ?)",
+        (user_id, action, doc_id, detail),
     )
 
 

@@ -9,7 +9,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
-from ..db import fts_phrase, get_conn, notify_others, reindex_document
+from ..db import fts_phrase, get_conn, log_activity, notify_others, reindex_document
 from ..services import converter, storage
 from ..services.extractor import extract_text
 from ..services.summarizer import analyze, analyze_version
@@ -166,6 +166,7 @@ async def upload(
                 (doc_id, filename, stored_name, sha, size, text, note.strip()),
             ).lastrowid
             reindex_document(conn, doc_id)
+            log_activity(conn, current_user["id"], "upload", doc_id, filename)
             new_ids.append(doc_id)
             background_tasks.add_task(analyze_version, version_id)
         if not new_ids:
@@ -261,6 +262,7 @@ async def upload_version(
             (doc_id,),
         )
         reindex_document(conn, doc_id)
+        log_activity(conn, current_user["id"], "version", doc_id, f"{filename} (v{next_no})")
         notify_others(
             conn, current_user["id"], doc_id,
             f"{current_user['email']}님이 문서에 새 버전을 올렸습니다: {doc['title']} (v{next_no})",
@@ -301,7 +303,8 @@ def _safe_name(name: str) -> str:
 
 
 @router.get("/versions/{version_id}/download")
-def download(version_id: int, format: str = "original"):
+def download(request: Request, version_id: int, format: str = "original"):
+    user = request.state.user
     conn = get_conn()
     try:
         ver = conn.execute("SELECT * FROM versions WHERE id = ?", (version_id,)).fetchone()
@@ -309,6 +312,12 @@ def download(version_id: int, format: str = "original"):
             conn.execute("SELECT * FROM documents WHERE id = ?", (ver["document_id"],)).fetchone()
             if ver else None
         )
+        if ver is not None and doc is not None:
+            log_activity(
+                conn, user["id"] if user else None, "download", doc["id"],
+                f"{ver['filename'] or doc['title']} (v{ver['version_no']}, {format})",
+            )
+            conn.commit()
     finally:
         conn.close()
     if ver is None or doc is None:
@@ -438,6 +447,7 @@ def delete(doc_id: int, current_user=Depends(get_current_user)):
             raise HTTPException(403, "삭제 권한이 없습니다 (작성자 또는 관리자만 삭제할 수 있습니다).")
         conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
         conn.execute("DELETE FROM fts WHERE rowid = ?", (doc_id,))
+        log_activity(conn, current_user["id"], "delete", doc_id, doc["title"])
         conn.commit()
     finally:
         conn.close()

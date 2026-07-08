@@ -90,6 +90,12 @@ uvicorn app.main:app --port 8001 --reload
   nginx.conf(리버스 프록시, client_max_body_size 0 = 업로드 무제한 정책).
   HTTPS 뒤에서는 `DOCPORTAL_SECURE_COOKIES=1`로 세션 쿠키 Secure 플래그.
 
+- 관리자 화면: `/admin/users`(승인/권한), `/admin/documents`(검색·필터·일괄 삭제),
+  `/admin/activity`(감사 로그 — `db.log_activity()`로 login/upload/version/
+  wiki_create/wiki_edit/delete/download 기록, 최근 200건 표시),
+  `/admin/storage`(용량·14일 업로드 추이·30일 최다 다운로드·부서별 사용량).
+  새 사용자 행동을 추가하면 log_activity 호출과 ACTION_LABELS 갱신을 잊지 말 것.
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),
