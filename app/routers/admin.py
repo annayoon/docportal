@@ -19,6 +19,8 @@ ACTION_LABELS = {
     "wiki_edit": "위키 수정",
     "delete": "문서 삭제",
     "download": "다운로드",
+    "meta_edit": "정보 수정",
+    "revert": "버전 복원",
 }
 
 

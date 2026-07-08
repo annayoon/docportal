@@ -1,3 +1,4 @@
+import difflib
 import html as html_lib
 from pathlib import Path
 
@@ -227,6 +228,136 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         )
     finally:
         conn.close()
+
+
+@router.get("/documents/{doc_id}/edit")
+def edit_meta_form(request: Request, doc_id: int):
+    conn = get_conn()
+    try:
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+    finally:
+        conn.close()
+    if doc is None:
+        raise HTTPException(404, "문서를 찾을 수 없습니다.")
+    if doc["doc_type"] == "wiki":
+        return RedirectResponse(f"/wiki/{doc_id}/edit", status_code=303)
+    return templates.TemplateResponse(request, "document_edit.html", {"doc": doc})
+
+
+@router.post("/documents/{doc_id}/edit")
+def edit_meta(
+    doc_id: int,
+    title: str = Form(...),
+    department: str = Form(""),
+    tags: str = Form(""),
+    current_user=Depends(get_current_user),
+):
+    conn = get_conn()
+    try:
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if doc is None or doc["doc_type"] != "file":
+            raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        conn.execute(
+            "UPDATE documents SET title = ?, department = ?, tags = ?, "
+            "updated_at = datetime('now','localtime') WHERE id = ?",
+            (title.strip() or doc["title"], department.strip(), tags.strip(), doc_id),
+        )
+        reindex_document(conn, doc_id)  # 제목/태그가 검색 인덱스에 들어가므로 갱신 필수
+        log_activity(conn, current_user["id"], "meta_edit", doc_id, title.strip())
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(f"/documents/{doc_id}", status_code=303)
+
+
+@router.post("/documents/{doc_id}/revert/{version_no}")
+def revert_version(doc_id: int, version_no: int, current_user=Depends(get_current_user)):
+    """이력을 다시 쓰지 않고, 과거 버전의 내용을 복사한 새 버전을 만든다."""
+    conn = get_conn()
+    try:
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if doc is None:
+            raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        src = conn.execute(
+            "SELECT * FROM versions WHERE document_id = ? AND version_no = ?",
+            (doc_id, version_no),
+        ).fetchone()
+        if src is None:
+            raise HTTPException(404, "해당 버전이 없습니다.")
+        latest_no = conn.execute(
+            "SELECT MAX(version_no) AS n FROM versions WHERE document_id = ?", (doc_id,)
+        ).fetchone()["n"]
+        if version_no == latest_no:
+            raise HTTPException(400, "이미 최신 버전입니다.")
+        conn.execute(
+            "INSERT INTO versions (document_id, version_no, filename, stored_name, sha256, "
+            "  size, content_text, note, summary, keywords) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                doc_id, latest_no + 1, src["filename"], src["stored_name"], src["sha256"],
+                src["size"], src["content_text"], f"v{version_no}에서 복원",
+                src["summary"], src["keywords"],
+            ),
+        )
+        conn.execute(
+            "UPDATE documents SET updated_at = datetime('now','localtime') WHERE id = ?",
+            (doc_id,),
+        )
+        reindex_document(conn, doc_id)
+        log_activity(
+            conn, current_user["id"], "revert", doc_id,
+            f"{doc['title']} (v{version_no} → v{latest_no + 1})",
+        )
+        notify_others(
+            conn, current_user["id"], doc_id,
+            f"{current_user['email']}님이 문서를 이전 버전으로 복원했습니다: {doc['title']} (v{version_no})",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse(f"/documents/{doc_id}", status_code=303)
+
+
+@router.get("/documents/{doc_id}/diff")
+def diff_versions(request: Request, doc_id: int, a: int, b: int):
+    """두 버전의 텍스트 내용을 비교한다 (파일 문서는 추출 텍스트 기준)."""
+    conn = get_conn()
+    try:
+        doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
+        if doc is None:
+            raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        rows = {
+            r["version_no"]: r
+            for r in conn.execute(
+                "SELECT * FROM versions WHERE document_id = ? AND version_no IN (?, ?)",
+                (doc_id, a, b),
+            ).fetchall()
+        }
+    finally:
+        conn.close()
+    if a not in rows or b not in rows:
+        raise HTTPException(404, "해당 버전이 없습니다.")
+    lines_a = (rows[a]["content_text"] or "").splitlines()
+    lines_b = (rows[b]["content_text"] or "").splitlines()
+    diff_lines = []
+    for line in difflib.unified_diff(lines_a, lines_b, lineterm="", n=3):
+        if line.startswith(("---", "+++")):
+            continue
+        if line.startswith("@@"):
+            cls = "hunk"
+        elif line.startswith("+"):
+            cls = "add"
+        elif line.startswith("-"):
+            cls = "del"
+        else:
+            cls = "ctx"
+        diff_lines.append({"cls": cls, "text": line})
+    return templates.TemplateResponse(
+        request,
+        "document_diff.html",
+        {"doc": doc, "a": a, "b": b, "diff_lines": diff_lines,
+         "va": rows[a], "vb": rows[b]},
+    )
 
 
 @router.post("/documents/{doc_id}/versions")

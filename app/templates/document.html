@@ -24,6 +24,7 @@
         {% endif %}
       </div>
       {% else %}
+      <a class="btn" href="/documents/{{ doc.id }}/edit">✏️ 정보 수정</a>
       <div class="download-group">
         <a class="btn" href="/versions/{{ versions[0].id }}/download?format=original">⬇ 원본 다운로드</a>
         {% if can_pdf %}
@@ -122,10 +123,19 @@
           <td>{{ v.size | filesize }}</td>
           <td>{{ v.note or '-' }}</td>
           <td>{{ v.created_at }}</td>
-          <td>
+          <td class="version-actions">
             {% if v.stored_name %}<a href="/versions/{{ v.id }}/download">다운로드</a>{% endif %}
             {% if doc.doc_type == 'wiki' and not loop.first %}
             <a href="/documents/{{ doc.id }}?v={{ v.version_no }}">보기</a>
+            {% endif %}
+            {% if v.version_no > 1 %}
+            <a href="/documents/{{ doc.id }}/diff?a={{ v.version_no - 1 }}&b={{ v.version_no }}">이전과 비교</a>
+            {% endif %}
+            {% if not loop.first %}
+            <form action="/documents/{{ doc.id }}/revert/{{ v.version_no }}" method="post" class="inline-form"
+                  onsubmit="return confirm('v{{ v.version_no }}의 내용으로 새 버전을 만들어 복원할까요? (이력은 그대로 남습니다)')">
+              <button type="submit" class="btn-link">복원</button>
+            </form>
             {% endif %}
           </td>
         </tr>

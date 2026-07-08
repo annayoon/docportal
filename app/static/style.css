@@ -268,6 +268,25 @@ mark { background: var(--mark); padding: 0 2px; border-radius: 2px; }
 .trend-count { font-size: 0.72rem; color: var(--muted); order: -1; margin-bottom: 2px; }
 .trend-day { font-size: 0.68rem; color: var(--muted); margin-top: 6px; white-space: nowrap; }
 
+.version-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn-link {
+  background: none; border: none; padding: 0; color: var(--primary);
+  font-size: inherit; font-family: inherit; cursor: pointer;
+}
+.btn-link:hover { text-decoration: underline; }
+
+.diff-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.diff-view {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 0; overflow-x: auto; box-shadow: var(--shadow-sm);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.85rem; line-height: 1.5;
+}
+.diff-line { padding: 1px 18px; white-space: pre-wrap; word-break: break-word; }
+.diff-add { background: #ecfdf5; color: #065f46; }
+.diff-del { background: #fef2f2; color: #991b1b; }
+.diff-hunk { background: #eff6ff; color: var(--primary); font-weight: 600; margin: 6px 0; }
+.diff-ctx { color: var(--muted); }
+
 .bell { position: relative; }
 .badge-count {
   position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;

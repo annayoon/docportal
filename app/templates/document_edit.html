@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} 정보 수정{% endblock %}
+{% block content %}
+<section class="editor">
+  <h2>✏️ 문서 정보 수정</h2>
+  <p class="upload-hint">파일 내용은 바뀌지 않습니다 — 제목·부서·태그만 수정됩니다.
+    내용을 바꾸려면 문서 페이지에서 [새 버전 업로드]를 사용하세요.</p>
+  <form action="/documents/{{ doc.id }}/edit" method="post" class="editor-form">
+    <input type="text" name="title" value="{{ doc.title }}" placeholder="제목" required>
+    <div class="editor-row">
+      <input type="text" name="department" value="{{ doc.department }}" placeholder="부서">
+      <input type="text" name="tags" value="{{ doc.tags }}" placeholder="태그 (쉼표 구분)">
+    </div>
+    <div class="editor-actions">
+      <button type="submit" class="btn primary">저장</button>
+      <a class="btn" href="/documents/{{ doc.id }}">취소</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

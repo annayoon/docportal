@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.title }} — v{{ a }} ↔ v{{ b }} 비교{% endblock %}
+{% block content %}
+<section>
+  <div class="section-head">
+    <h2>버전 비교 — <a href="/documents/{{ doc.id }}">{{ doc.title }}</a></h2>
+  </div>
+  <div class="diff-meta">
+    <span class="badge dept">v{{ a }} · {{ va.created_at }}</span>
+    <span>→</span>
+    <span class="badge latest">v{{ b }} · {{ vb.created_at }}</span>
+    {% if doc.doc_type == 'file' %}
+    <span class="muted-cell">(파일 문서는 추출된 텍스트 기준으로 비교합니다)</span>
+    {% endif %}
+  </div>
+
+  {% if diff_lines %}
+  <div class="diff-view">
+    {% for line in diff_lines %}
+    <div class="diff-line diff-{{ line.cls }}">{{ line.text }}</div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">두 버전의 내용이 동일합니다.</p>
+  {% endif %}
+
+  <p style="margin-top: 16px;"><a class="btn" href="/documents/{{ doc.id }}">← 문서로 돌아가기</a></p>
+</section>
+{% endblock %}

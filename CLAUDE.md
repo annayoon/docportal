@@ -96,6 +96,11 @@ uvicorn app.main:app --port 8001 --reload
   `/admin/storage`(용량·14일 업로드 추이·30일 최다 다운로드·부서별 사용량).
   새 사용자 행동을 추가하면 log_activity 호출과 ACTION_LABELS 갱신을 잊지 말 것.
 
+- 리비전 편집: 파일 문서 메타데이터 수정 `/documents/{id}/edit`(reindex 필수),
+  복원 `/documents/{id}/revert/{version_no}` — 이력을 다시 쓰지 않고 과거 버전
+  내용을 복사한 새 버전 생성(summary/keywords도 복사, 최신 버전 복원은 400),
+  비교 `/documents/{id}/diff?a=&b=` — content_text 기준 unified diff.
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),
