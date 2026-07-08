@@ -15,6 +15,9 @@
     </form>
     <nav>
       <a class="btn" href="/wiki/new">✏️ 새 문서 작성</a>
+      {% if maxkb_chat_url and request.state.user %}
+      <a class="btn" href="{{ maxkb_chat_url }}" target="_blank" rel="noopener">🤖 AI 챗봇</a>
+      {% endif %}
       {% if request.state.user %}
       <a class="btn bell" href="/notifications">🔔{% if request.state.unread_count %}<span class="badge-count">{{ request.state.unread_count }}</span>{% endif %}</a>
       {% if request.state.user.role == 'admin' %}

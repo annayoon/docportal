@@ -117,6 +117,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("UPDATE users SET email_verified = 1")
     if "verify_token" not in user_cols:
         conn.execute("ALTER TABLE users ADD COLUMN verify_token TEXT")
+    if "maxkb_doc_id" not in cols:
+        conn.execute("ALTER TABLE documents ADD COLUMN maxkb_doc_id TEXT")
     version_cols = {row["name"] for row in conn.execute("PRAGMA table_info(versions)")}
     if "summary" not in version_cols:
         conn.execute("ALTER TABLE versions ADD COLUMN summary TEXT")

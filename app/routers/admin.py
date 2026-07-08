@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ..auth import get_current_admin
-from ..config import DATA_DIR, DB_PATH
+from ..config import DATA_DIR, DB_PATH, maxkb_configured
 from ..db import get_conn, log_activity
+from ..services import maxkb
 from ..templating import templates
 
 router = APIRouter(prefix="/admin")
@@ -55,7 +56,8 @@ def manage_documents(request: Request, dept: str = "", q: str = "", admin=Depend
         return templates.TemplateResponse(
             request,
             "admin_documents.html",
-            {"docs": docs, "departments": departments, "dept": dept, "q": q.strip()},
+            {"docs": docs, "departments": departments, "dept": dept, "q": q.strip(),
+             "maxkb_on": maxkb_configured()},
         )
     finally:
         conn.close()
@@ -65,6 +67,7 @@ def manage_documents(request: Request, dept: str = "", q: str = "", admin=Depend
 def bulk_delete(request: Request, doc_ids: list[int] = Form(...), admin=Depends(get_current_admin)):
     conn = get_conn()
     try:
+        maxkb_ids = []
         for doc_id in doc_ids:
             doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
             if doc is None:
@@ -72,9 +75,27 @@ def bulk_delete(request: Request, doc_ids: list[int] = Form(...), admin=Depends(
             conn.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
             conn.execute("DELETE FROM fts WHERE rowid = ?", (doc_id,))
             log_activity(conn, admin["id"], "delete", doc_id, f"{doc['title']} (일괄 삭제)")
+            maxkb_ids.append(doc["maxkb_doc_id"])
         conn.commit()
     finally:
         conn.close()
+    for mid in maxkb_ids:
+        maxkb.delete_async(mid)
+    return RedirectResponse("/admin/documents", status_code=303)
+
+
+@router.post("/maxkb-sync")
+def maxkb_full_sync(admin=Depends(get_current_admin)):
+    """전체 문서를 MaxKB 지식베이스로 동기화 (초기 적재/재구축용)."""
+    if not maxkb_configured():
+        raise HTTPException(503, "MaxKB 연동이 설정되어 있지 않습니다.")
+    conn = get_conn()
+    try:
+        doc_ids = [r["id"] for r in conn.execute("SELECT id FROM documents").fetchall()]
+    finally:
+        conn.close()
+    for doc_id in doc_ids:
+        maxkb.sync_async(doc_id)
     return RedirectResponse("/admin/documents", status_code=303)
 
 

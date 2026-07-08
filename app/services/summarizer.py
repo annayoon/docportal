@@ -31,6 +31,10 @@ def analyze_version(version_id: int) -> None:
         # 키워드가 검색에 잡히도록 문서 인덱스 갱신
         reindex_document(conn, ver["document_id"])
         conn.commit()
+        # MaxKB 지식베이스에도 최신 본문 반영 (미설정이면 no-op)
+        from .maxkb import sync_async
+
+        sync_async(ver["document_id"])
     except Exception:
         logger.exception("자동 요약/키워드 추출 실패: version_id=%s", version_id)
     finally:

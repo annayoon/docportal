@@ -26,6 +26,19 @@ MAX_CONVERSIONS = max(1, int(os.environ.get("DOCPORTAL_MAX_CONVERSIONS", "3")))
 # Google Chat: 스페이스 → 앱 및 통합 → 웹훅 추가 (앱 비밀번호 불필요)
 WEBHOOK_URL = os.environ.get("DOCPORTAL_WEBHOOK_URL", "")
 
+# MaxKB 연동 — 설정 시 문서 본문을 MaxKB 지식베이스로 자동 동기화 (RAG 챗봇용)
+MAXKB_URL = os.environ.get("DOCPORTAL_MAXKB_URL", "").rstrip("/")
+MAXKB_USER = os.environ.get("DOCPORTAL_MAXKB_USER", "admin")
+MAXKB_PASSWORD = os.environ.get("DOCPORTAL_MAXKB_PASSWORD", "")
+MAXKB_KB_ID = os.environ.get("DOCPORTAL_MAXKB_KB_ID", "")
+MAXKB_WORKSPACE = os.environ.get("DOCPORTAL_MAXKB_WORKSPACE", "default")
+# 포털 화면에 노출할 챗봇 주소 (MaxKB 애플리케이션 공유 링크)
+MAXKB_CHAT_URL = os.environ.get("DOCPORTAL_MAXKB_CHAT_URL", "")
+
+
+def maxkb_configured() -> bool:
+    return bool(MAXKB_URL and MAXKB_PASSWORD and MAXKB_KB_ID)
+
 # SMTP 설정 — USER/PASSWORD가 모두 있으면 가입 인증 메일을 발송한다.
 # Gmail(Google Workspace)은 2단계 인증 + 앱 비밀번호 필요: https://myaccount.google.com/apppasswords
 SMTP_HOST = os.environ.get("DOCPORTAL_SMTP_HOST", "smtp.gmail.com")

@@ -72,6 +72,22 @@ sudo bash deploy/install.sh
 - 백업: `/var/lib/docportal` 디렉토리 하나만 챙기면 됨 (DB + 업로드 원본)
 - 상태 확인: `systemctl status docportal` / 로그: `journalctl -u docportal -f`
 
+## MaxKB 챗봇 연동 (선택)
+
+[MaxKB](https://github.com/1Panel-dev/MaxKB)를 세우고 환경변수를 설정하면
+문서 업로드·수정·복원·삭제가 MaxKB 지식베이스에 자동 반영되어, 사내 문서
+기반 RAG 챗봇을 운영할 수 있다 (HWP 포함 — 포털이 추출한 텍스트를 전송).
+
+```bash
+docker run -d --name=maxkb -p 8080:8080 -v ~/.maxkb:/opt/maxkb 1panel/maxkb
+export DOCPORTAL_MAXKB_URL=http://localhost:8080
+export DOCPORTAL_MAXKB_PASSWORD=<MaxKB admin 비밀번호>
+export DOCPORTAL_MAXKB_KB_ID=<지식베이스 ID>
+export DOCPORTAL_MAXKB_CHAT_URL=<챗봇 공유 링크>   # 상단에 'AI 챗봇' 버튼 노출
+```
+
+초기 적재는 관리자 [문서] 화면의 **MaxKB 전체 동기화** 버튼으로 실행한다.
+
 ## 이메일 인증 설정 (선택)
 
 가입 인증 메일을 보내려면 SMTP 환경변수를 설정하고 실행한다.

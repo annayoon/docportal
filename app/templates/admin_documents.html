@@ -15,6 +15,12 @@
       <button type="submit" class="btn">필터</button>
     </form>
   </div>
+  {% if maxkb_on %}
+  <form action="/admin/maxkb-sync" method="post" class="inline-form" style="margin-bottom: 12px;"
+        onsubmit="return confirm('전체 문서를 MaxKB 지식베이스로 동기화할까요?')">
+    <button type="submit" class="btn">🤖 MaxKB 전체 동기화</button>
+  </form>
+  {% endif %}
 
   {% if docs %}
   <form action="/admin/documents/bulk-delete" method="post"

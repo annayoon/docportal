@@ -101,6 +101,13 @@ uvicorn app.main:app --port 8001 --reload
   내용을 복사한 새 버전 생성(summary/keywords도 복사, 최신 버전 복원은 400),
   비교 `/documents/{id}/diff?a=&b=` — content_text 기준 unified diff.
 
+- MaxKB 연동(`app/services/maxkb.py`): `DOCPORTAL_MAXKB_*` 설정 시 문서 최신
+  본문을 지식베이스에 자동 동기화(교체 방식 — 기존 MaxKB 문서 삭제 후 재생성,
+  매핑은 `documents.maxkb_doc_id`). 훅: analyze_version(업로드/위키), meta_edit,
+  revert, delete(단건/일괄). 빈 본문(스캔 PDF 등)은 스킵. 전체 재적재는
+  `/admin/maxkb-sync`. MaxKB는 로컬 Docker(colima)로 8080에서 구동,
+  임베딩/LLM은 host.docker.internal로 호스트 Ollama 사용.
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),

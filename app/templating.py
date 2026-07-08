@@ -17,3 +17,7 @@ def format_size(size: int | None) -> str:
 
 
 templates.env.filters["filesize"] = format_size
+
+from .config import MAXKB_CHAT_URL  # noqa: E402
+
+templates.env.globals["maxkb_chat_url"] = MAXKB_CHAT_URL

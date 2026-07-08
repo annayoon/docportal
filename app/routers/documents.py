@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
 from ..db import fts_phrase, get_conn, log_activity, notify_others, reindex_document
-from ..services import converter, storage
+from ..services import converter, maxkb, storage
 from ..services.extractor import extract_text
 from ..services.summarizer import analyze, analyze_version
 from ..templating import templates
@@ -267,6 +267,7 @@ def edit_meta(
         conn.commit()
     finally:
         conn.close()
+    maxkb.sync_async(doc_id)  # MaxKB 문서명도 새 제목으로 교체
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -315,6 +316,7 @@ def revert_version(doc_id: int, version_no: int, current_user=Depends(get_curren
         conn.commit()
     finally:
         conn.close()
+    maxkb.sync_async(doc_id)  # 복원된 내용을 지식베이스에 반영
     return RedirectResponse(f"/documents/{doc_id}", status_code=303)
 
 
@@ -582,4 +584,5 @@ def delete(doc_id: int, current_user=Depends(get_current_user)):
         conn.commit()
     finally:
         conn.close()
+    maxkb.delete_async(doc["maxkb_doc_id"])
     return RedirectResponse("/", status_code=303)
