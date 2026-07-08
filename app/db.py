@@ -143,7 +143,13 @@ def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
 
 
 def notify_others(conn: sqlite3.Connection, actor_id: int, doc_id: int, message: str) -> None:
-    """업로드/편집 행위자 본인을 제외한 모든 승인된 사용자에게 알림을 남긴다."""
+    """업로드/편집 행위자 본인을 제외한 모든 승인된 사용자에게 알림을 남긴다.
+
+    웹훅(DOCPORTAL_WEBHOOK_URL)이 설정돼 있으면 메신저로도 푸시한다.
+    """
+    from .config import BASE_URL
+    from .services.webhook import push
+
     recipients = conn.execute(
         "SELECT id FROM users WHERE status = 'approved' AND id != ?", (actor_id,)
     ).fetchall()
@@ -151,3 +157,4 @@ def notify_others(conn: sqlite3.Connection, actor_id: int, doc_id: int, message:
         "INSERT INTO notifications (user_id, document_id, message) VALUES (?, ?, ?)",
         [(r["id"], doc_id, message) for r in recipients],
     )
+    push(f"{message}\n{BASE_URL}/documents/{doc_id}")

@@ -21,6 +21,8 @@ Environment=DOCPORTAL_DATA=/var/lib/docportal
 #Environment=DOCPORTAL_OLLAMA_MODEL=gemma4:12b
 # 동시 문서 변환 상한 (기본 3 — 서버 사양에 맞게 조정)
 #Environment=DOCPORTAL_MAX_CONVERSIONS=3
+# 문서 업로드/변경 메신저 푸시 — Google Chat/Slack 수신 웹훅 URL
+#Environment=DOCPORTAL_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/.../messages?key=...
 # SMTP 인증 메일 (사용 시)
 #Environment=DOCPORTAL_SMTP_USER=portal@example.com
 #Environment=DOCPORTAL_SMTP_PASSWORD=...

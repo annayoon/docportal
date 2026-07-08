@@ -48,7 +48,11 @@ uvicorn app.main:app --port 8001 --reload
   `status='approved'` 사용자 전원에게 `notifications` 테이블에 행이 생긴다.
   헤더의 🔔 뱃지는 `AuthMiddleware`가 매 요청마다 채우는
   `request.state.unread_count`로 표시하고, `/notifications` 조회 시 전체
-  읽음 처리한다. 실제 이메일/외부 푸시는 사용하지 않음(폐쇄망 전제).
+  읽음 처리한다. 이메일 발송은 안 하지만, `DOCPORTAL_WEBHOOK_URL` 설정 시
+  `notify_others()`가 Google Chat/Slack 호환 웹훅({"text": ...} POST)으로도
+  푸시한다(`app/services/webhook.py`, 데몬 스레드 fire-and-forget — 실패해도
+  업로드에 영향 없음). 링크 호스트는 `DOCPORTAL_BASE_URL`.
+  Gmail 앱 비밀번호가 회사 규정상 불가라 웹훅이 사실상의 푸시 수단.
 
 - 미리보기/요약: 상세 페이지에서 PDF·이미지는 `/versions/{id}/preview`(inline)로
   브라우저 렌더링, 그 외는 `content_text` 표시. 요약은 `versions.summary`에

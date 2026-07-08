@@ -22,6 +22,10 @@ SOFFICE_BIN = os.environ.get("DOCPORTAL_SOFFICE", "")
 # 동시 변환 상한 — LibreOffice 프로세스 폭주로 서버가 느려지는 것을 방지
 MAX_CONVERSIONS = max(1, int(os.environ.get("DOCPORTAL_MAX_CONVERSIONS", "3")))
 
+# 문서 업로드/변경 푸시 알림 — Google Chat/Slack 수신 웹훅 URL ({"text": ...} POST 호환)
+# Google Chat: 스페이스 → 앱 및 통합 → 웹훅 추가 (앱 비밀번호 불필요)
+WEBHOOK_URL = os.environ.get("DOCPORTAL_WEBHOOK_URL", "")
+
 # SMTP 설정 — USER/PASSWORD가 모두 있으면 가입 인증 메일을 발송한다.
 # Gmail(Google Workspace)은 2단계 인증 + 앱 비밀번호 필요: https://myaccount.google.com/apppasswords
 SMTP_HOST = os.environ.get("DOCPORTAL_SMTP_HOST", "smtp.gmail.com")
