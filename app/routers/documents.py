@@ -326,6 +326,8 @@ def download(version_id: int, format: str = "original"):
                 raise HTTPException(503, "형식 변환 기능(LibreOffice)이 서버에 설정되어 있지 않습니다.")
             try:
                 data = converter.convert(html, ".html", target)
+            except converter.ConversionBusy:
+                raise HTTPException(503, "변환 작업이 몰려 있습니다. 잠시 후 다시 시도해 주세요.")
             except Exception:
                 raise HTTPException(500, "문서 변환에 실패했습니다.")
         return Response(
@@ -352,6 +354,8 @@ def download(version_id: int, format: str = "original"):
             raise HTTPException(400, "이 형식은 PDF 변환을 지원하지 않습니다.")
         try:
             data = converter.convert(path.read_bytes(), src_ext, "pdf")
+        except converter.ConversionBusy:
+            raise HTTPException(503, "변환 작업이 몰려 있습니다. 잠시 후 다시 시도해 주세요.")
         except Exception:
             raise HTTPException(500, "PDF 변환에 실패했습니다.")
         base = _safe_name(Path(ver["filename"] or "document").stem)

@@ -19,6 +19,8 @@ SECURE_COOKIES = os.environ.get("DOCPORTAL_SECURE_COOKIES", "0") == "1"
 # 문서 형식 변환(LibreOffice headless) — 미설치면 원본 다운로드만 제공.
 # 실행 파일 경로를 직접 지정하려면 DOCPORTAL_SOFFICE 설정.
 SOFFICE_BIN = os.environ.get("DOCPORTAL_SOFFICE", "")
+# 동시 변환 상한 — LibreOffice 프로세스 폭주로 서버가 느려지는 것을 방지
+MAX_CONVERSIONS = max(1, int(os.environ.get("DOCPORTAL_MAX_CONVERSIONS", "3")))
 
 # SMTP 설정 — USER/PASSWORD가 모두 있으면 가입 인증 메일을 발송한다.
 # Gmail(Google Workspace)은 2단계 인증 + 앱 비밀번호 필요: https://myaccount.google.com/apppasswords

@@ -8,12 +8,22 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import threading
 from functools import lru_cache
 from pathlib import Path
 
-from ..config import SOFFICE_BIN
+from ..config import MAX_CONVERSIONS, SOFFICE_BIN
 
 logger = logging.getLogger(__name__)
+
+
+class ConversionBusy(RuntimeError):
+    """동시 변환 상한에 걸려 대기 시간 내에 슬롯을 얻지 못함."""
+
+
+# 동시 변환 상한: 초과 요청은 최대 _WAIT_TIMEOUT초 대기 후 ConversionBusy
+_slots = threading.BoundedSemaphore(MAX_CONVERSIONS)
+_WAIT_TIMEOUT = 60
 
 # 흔한 설치 경로 (macOS / Linux)
 _CANDIDATES = [
@@ -66,6 +76,15 @@ def convert(data: bytes, src_ext: str, target: str) -> bytes:
     binary = soffice_bin()
     if binary is None:
         raise RuntimeError("LibreOffice가 설치되어 있지 않습니다.")
+    if not _slots.acquire(timeout=_WAIT_TIMEOUT):
+        raise ConversionBusy("변환 작업이 몰려 있습니다.")
+    try:
+        return _convert_locked(binary, data, src_ext, target)
+    finally:
+        _slots.release()
+
+
+def _convert_locked(binary: str, data: bytes, src_ext: str, target: str) -> bytes:
     convert_arg = _TARGET_FILTER.get(target, target)
     out_ext = convert_arg.split(":")[0]
     src_ext = src_ext if src_ext.startswith(".") else f".{src_ext}"

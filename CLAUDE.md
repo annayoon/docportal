@@ -96,8 +96,10 @@ uvicorn app.main:app --port 8001 --reload
 - 로그인 `next`는 내부 경로만 허용(오픈 리다이렉트 방지). 세션은 30일 만료 +
   로그인 시 만료분 정리. 마지막 관리자는 강등/거부 불가(잠금 방지).
 - HWP 압축 해제는 섹션당 64MB 상한(압축 폭탄 방지). SQLite는 WAL + busy_timeout.
+- 변환 동시 실행 상한: `DOCPORTAL_MAX_CONVERSIONS`(기본 3) — 세마포어로 제한,
+  초과분은 60초 대기 후 503(ConversionBusy). LibreOffice 프로세스 폭주 방지.
 - **미적용(알려진 한계)**: CSRF 토큰 없음(SameSite=Lax로 완화), 로그인 레이트리밋
-  없음, 변환 요청 큐 없음(동시 대량 변환 시 부하). 필요 시 로드맵에 추가할 것.
+  없음. 필요 시 로드맵에 추가할 것.
 
 ## 로드맵 (우선순위 순)
 
