@@ -11,7 +11,7 @@
   Markdown으로 변환해 다운로드. PDF 변환은 LibreOffice, Markdown 변환은
   markitdown 사용(Word는 서식까지, PDF는 텍스트 기반). 미설치 시 원본만 제공.
 - **문서 업로드 & 전문 검색** — PDF, Word(docx), Excel(xlsx), PowerPoint(pptx),
-  HWP(한글), 텍스트 파일의 본문을 추출해 SQLite FTS5(trigram)로 인덱싱.
+  HWP·HWPX(한글), 텍스트 파일의 본문을 추출해 SQLite FTS5(trigram)로 인덱싱.
   한국어 부분 문자열 검색 지원.
 - **버전 관리** — 같은 문서에 새 버전을 업로드하면 이력이 쌓이고, 모든 이전
   버전을 다운로드할 수 있음. **이전 버전으로 복원**(이력 보존)과 **버전 간

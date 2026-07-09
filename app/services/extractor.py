@@ -6,6 +6,8 @@
 
 import io
 import logging
+import re
+import zipfile
 from pathlib import Path
 
 from ..config import MAX_TEXT_LEN
@@ -13,6 +15,29 @@ from ..config import MAX_TEXT_LEN
 logger = logging.getLogger(__name__)
 
 TEXT_SUFFIXES = {".txt", ".md", ".csv", ".log", ".json", ".xml", ".yaml", ".yml"}
+
+
+def extract_from_path(path, filename: str, max_bytes: int) -> str:
+    """저장된 파일 경로에서 텍스트를 추출한다. 메모리 절약을 위해 형식별로 처리 방식을 나눈다.
+
+    - .hwpx: ZIP 내부 본문 XML(작은 조각)만 읽어 크기 제한 없이 추출 (임베디드 미디어로 파일이
+      아무리 커도 메모리를 적게 씀).
+    - 그 외: 파일이 max_bytes 이하일 때만 통째로 읽어 추출 라이브러리에 넘긴다.
+    """
+    suffix = Path(filename).suffix.lower()
+    try:
+        if suffix == ".hwpx":
+            return _from_hwpx(str(path))[:MAX_TEXT_LEN]
+    except Exception:
+        logger.exception("HWPX 텍스트 추출 실패: %s", filename)
+        return ""
+    try:
+        if path.stat().st_size > max_bytes:
+            return ""
+        return extract_text(path.read_bytes(), filename)
+    except Exception:
+        logger.exception("텍스트 추출 실패: %s", filename)
+        return ""
 
 
 def extract_text(data: bytes, filename: str) -> str:
@@ -28,6 +53,8 @@ def extract_text(data: bytes, filename: str) -> str:
             text = _from_xlsx(data)
         elif suffix == ".hwp":
             text = _from_hwp(data)
+        elif suffix == ".hwpx":
+            text = _from_hwpx(io.BytesIO(data))
         elif suffix in TEXT_SUFFIXES:
             text = data.decode("utf-8", errors="replace")
         else:
@@ -36,6 +63,35 @@ def extract_text(data: bytes, filename: str) -> str:
         logger.exception("텍스트 추출 실패: %s", filename)
         text = ""
     return text[:MAX_TEXT_LEN]
+
+
+def _from_hwpx(source) -> str:
+    """HWPX(신형 한글) — ZIP 내부 Contents/section*.xml 의 본문 텍스트(<hp:t>)를 추출.
+
+    source: 파일 경로(str) 또는 파일류 객체. 본문 XML만 읽으므로 대용량 파일도 가볍다.
+    """
+    parts: list[str] = []
+    with zipfile.ZipFile(source) as zf:
+        sections = sorted(
+            (n for n in zf.namelist() if re.fullmatch(r"Contents/section\d+\.xml", n)),
+            key=lambda n: int(re.search(r"section(\d+)", n).group(1)),
+        )
+        import xml.etree.ElementTree as ET
+
+        def local(tag: str) -> str:
+            return tag.rsplit("}", 1)[-1]
+
+        for name in sections:
+            root = ET.fromstring(zf.read(name))
+            for para in root.iter():
+                if local(para.tag) != "p":  # 문단 단위로 묶어 줄바꿈 보존
+                    continue
+                buf = "".join(
+                    t.text for t in para.iter() if local(t.tag) == "t" and t.text
+                )
+                if buf.strip():
+                    parts.append(buf)
+    return "\n".join(parts)
 
 
 def _from_pdf(data: bytes) -> str:

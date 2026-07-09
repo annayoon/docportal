@@ -48,11 +48,13 @@ def _require_owner_or_admin(doc, user) -> None:
 
 
 def _extract_masked(stored_name: str, filename: str, size: int) -> tuple[str, list[str]]:
-    """저장된 파일에서 텍스트 추출 + 민감정보 마스킹. 초대형 파일은 추출 생략."""
-    if size == 0 or size > EXTRACT_MAX_BYTES:
+    """저장된 파일에서 텍스트 추출 + 민감정보 마스킹. (hwpx는 크기 제한 없이 XML만 읽음)"""
+    if size == 0:
         return "", []
-    data = storage.file_path(stored_name).read_bytes()
-    return scan_and_mask(extract_text(data, filename))
+    from ..services.extractor import extract_from_path
+
+    text = extract_from_path(storage.file_path(stored_name), filename, EXTRACT_MAX_BYTES)
+    return scan_and_mask(text)
 
 
 def _preview_kind(filename: str | None, content_text: str, size: int = 0) -> str | None:

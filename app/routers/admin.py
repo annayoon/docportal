@@ -161,6 +161,52 @@ def rescan_sensitive(admin=Depends(get_current_admin)):
     return RedirectResponse("/admin/documents", status_code=303)
 
 
+@router.post("/reextract")
+def reextract(admin=Depends(get_current_admin)):
+    """본문이 비어 있는 파일 문서를 저장된 원본에서 다시 추출한다.
+    (신형 hwpx 지원 추가 등으로 이전에 추출 실패한 문서 복구용)"""
+    from ..config import EXTRACT_MAX_BYTES
+    from ..db import reindex_document
+    from ..services import storage
+    from ..services.extractor import extract_from_path
+    from ..services.sensitive import scan_and_mask
+    from ..services.summarizer import analyze_version
+
+    conn = get_conn()
+    fixed: list[int] = []
+    version_ids: list[int] = []
+    try:
+        rows = conn.execute(
+            "SELECT v.id AS vid, v.document_id, v.filename, v.stored_name, v.size "
+            "FROM versions v JOIN documents d ON d.id = v.document_id "
+            "WHERE d.doc_type = 'file' AND v.stored_name IS NOT NULL "
+            "AND (v.content_text IS NULL OR v.content_text = '') "
+            "AND v.version_no = (SELECT MAX(version_no) FROM versions WHERE document_id = v.document_id)"
+        ).fetchall()
+        for r in rows:
+            text = extract_from_path(
+                storage.file_path(r["stored_name"]), r["filename"] or "", EXTRACT_MAX_BYTES
+            )
+            masked, flags = scan_and_mask(text)
+            if not masked.strip():
+                continue  # 여전히 추출 불가 (미지원 형식 등)
+            conn.execute("UPDATE versions SET content_text = ? WHERE id = ?", (masked, r["vid"]))
+            conn.execute("UPDATE documents SET sensitive_flags = ? WHERE id = ?",
+                         (",".join(flags), r["document_id"]))
+            reindex_document(conn, r["document_id"])
+            fixed.append(r["document_id"])
+            version_ids.append(r["vid"])
+        log_activity(conn, admin["id"], "meta_edit", None, f"본문 재추출 {len(fixed)}건")
+        conn.commit()
+    finally:
+        conn.close()
+    # 요약·키워드 재생성 + MaxKB 반영 (요청을 막지 않도록 백그라운드 스레드)
+    import threading
+    for vid in version_ids:
+        threading.Thread(target=analyze_version, args=(vid,), daemon=True).start()
+    return RedirectResponse("/admin/documents", status_code=303)
+
+
 @router.post("/maxkb-sync")
 def maxkb_full_sync(admin=Depends(get_current_admin)):
     """전체 문서를 MaxKB 지식베이스로 동기화 (초기 적재/재구축용)."""
