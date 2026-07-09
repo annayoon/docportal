@@ -65,6 +65,19 @@ CREATE TABLE IF NOT EXISTS activity_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at);
+
+CREATE TABLE IF NOT EXISTS maxkb_sync_queue (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT NOT NULL,                     -- 'sync' | 'delete'
+  doc_id INTEGER,                           -- sync 대상 문서
+  maxkb_doc_id TEXT,                        -- delete 대상 (문서가 이미 삭제됐을 수 있어 별도 보관)
+  attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_syncq_due ON maxkb_sync_queue(next_attempt_at);
 """
 
 

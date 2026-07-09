@@ -199,6 +199,7 @@ def storage_stats(request: Request, admin=Depends(get_current_admin)):
             "disk_total": disk.total, "disk_free": disk.free,
             "max_size": by_dept[0]["size"] if by_dept else 0,
             "trend": trend, "trend_max": trend_max, "top_downloads": top_downloads,
+            "maxkb_on": maxkb_configured(), "sync_queue": maxkb.queue_stats(),
         },
     )
 

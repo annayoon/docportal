@@ -10,10 +10,13 @@ from .auth import user_from_token
 from .config import SESSION_COOKIE
 from .db import get_conn, init_db
 from .routers import admin, auth, documents, notifications, search, wiki
+from .services import maxkb
 
 app = FastAPI(title="DocPortal — 전사 문서 포털")
 
 init_db()
+# MaxKB 동기화 워커 시작 (미설정이면 no-op). 서버 재시작 시 밀린 큐를 이어서 처리.
+maxkb.start_worker()
 
 PUBLIC_PATHS = {"/login", "/signup", "/verify"}
 PUBLIC_PREFIXES = ("/static",)

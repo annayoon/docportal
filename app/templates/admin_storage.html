@@ -27,6 +27,20 @@
     </div>
   </div>
 
+  {% if maxkb_on %}
+  <h2>AI 챗봇 동기화</h2>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ sync_queue.pending }}</div>
+      <div class="stat-label">동기화 대기 중</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{ sync_queue.failed }}</div>
+      <div class="stat-label">동기화 실패 (재시도 중단)</div>
+    </div>
+  </div>
+  {% endif %}
+
   <h2>최근 14일 업로드 추이</h2>
   <div class="trend">
     {% for t in trend %}

@@ -105,7 +105,13 @@ uvicorn app.main:app --port 8001 --reload
   본문을 지식베이스에 자동 동기화(교체 방식 — 기존 MaxKB 문서 삭제 후 재생성,
   매핑은 `documents.maxkb_doc_id`). 훅: analyze_version(업로드/위키), meta_edit,
   revert, delete(단건/일괄). 빈 본문(스캔 PDF 등)은 스킵. 전체 재적재는
-  `/admin/maxkb-sync`. MaxKB는 로컬 Docker(colima)로 8080에서 구동,
+  `/admin/maxkb-sync`(전체 재적재도 큐로 들어감). **동기화는 영속 큐
+  (`maxkb_sync_queue` 테이블) + 단일 워커** — `sync_async`/`delete_async`는
+  큐에 넣기만 하고, `start_worker()`(main.py 기동)가 순서대로 처리. 같은 문서
+  연속 변경은 대기 sync 1건으로 합침. 실패 시 지수 백오프 재시도(최대 8회,
+  base 15s~cap 1h), 서버 재시작해도 큐 유지. 관리자 저장소 화면에 대기/실패
+  건수 표시. 워커 1개라 대량 업로드도 순차 처리(MaxKB/Ollama 과부하 방지).
+  MaxKB는 로컬 Docker(colima)로 8080에서 구동,
   임베딩/LLM은 host.docker.internal로 호스트 Ollama 사용.
 
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
