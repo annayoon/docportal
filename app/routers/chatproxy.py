@@ -18,11 +18,12 @@ from ..config import MAXKB_URL, maxkb_configured
 router = APIRouter()
 
 # 챗봇 페이지에 주입할 '문서 포털로 돌아가기' 버튼 (MaxKB는 건드리지 않고 프록시에서 삽입)
+# 상단 양쪽 모서리에 MaxKB 자체 아이콘(메뉴/공유/접기)이 있어 겹치므로 좌측 하단에 배치
 _BACK_BUTTON = (
-    '<a href="/" target="_top" style="position:fixed;top:10px;right:52px;z-index:2147483647;'
-    'background:#2563eb;color:#fff;padding:6px 12px;border-radius:8px;'
+    '<a href="/" target="_top" style="position:fixed;left:16px;bottom:96px;z-index:2147483647;'
+    'background:#2563eb;color:#fff;padding:8px 14px;border-radius:999px;'
     'font:600 13px/1 -apple-system,\'Malgun Gothic\',sans-serif;text-decoration:none;'
-    'box-shadow:0 2px 10px rgba(16,24,40,.25)">← 문서 포털</a>'
+    'box-shadow:0 3px 12px rgba(16,24,40,.3)">← 문서 포털</a>'
 )
 
 # MaxKB 프론트엔드에 하드코딩된 영어 라벨을 한국어로 치환 (JS 파일을 건드리지 않음).
