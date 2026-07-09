@@ -47,6 +47,15 @@ _I18N = {
     "Clear": "지우기",
     "Copy": "복사",
     "Regenerate": "다시 생성",
+    "Regenerate Response": "답변 다시 생성",
+    "Like": "좋아요",
+    "Dislike": "싫어요",
+    "Edit": "편집",
+    "Delete": "삭제",
+    "Rename": "이름 변경",
+    "Save": "저장",
+    "Confirm": "확인",
+    "Please enter": "입력하세요",
 }
 _I18N_SCRIPT = (
     "<script>(function(){var M=" + json.dumps(_I18N, ensure_ascii=False) + ";"
