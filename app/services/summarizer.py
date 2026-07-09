@@ -82,7 +82,11 @@ def _ollama_analyze(text: str) -> tuple[str, list[str]]:
 
 def _extractive_summary(text: str, max_sentences: int = 5) -> str:
     """단어 빈도 점수로 핵심 문장을 뽑는 간단한 추출 요약 (LLM 불필요)."""
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?다요음됨])\s+|\n+", text) if len(s.strip()) >= 10]
+    # PDF 추출 텍스트는 문장 중간에 줄바꿈이 있으므로, 먼저 한 줄로 합친 뒤 문장 경계로 자른다
+    joined = re.sub(r"\s*\n\s*", " ", text)
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", joined) if len(s.strip()) >= 15]
+    if len(sentences) < 2:  # 마침표가 거의 없는 문서는 종결어미로 재시도
+        sentences = [s.strip() for s in re.split(r"(?<=[다요음됨])\s+", joined) if len(s.strip()) >= 15]
     if not sentences:
         return text[:300]
     freq = Counter(_words(text))
@@ -95,9 +99,32 @@ def _extractive_summary(text: str, max_sentences: int = 5) -> str:
     return "\n".join(f"- {s}" for s in top_in_order)
 
 
+# 폴백 키워드에서 걸러낼 기능어 (조사 제거 후 기준)
+_STOPWORDS = {
+    "있다", "있는", "없다", "한다", "하는", "했다", "된다", "되는", "대한", "대해",
+    "통해", "위해", "위한", "경우", "때문", "따라", "다음", "해당", "관련", "이용",
+    "사용", "제공", "가능", "필요", "그림", "결과", "방법", "내용", "정보", "것이",
+    "그리고", "그러나", "하지만", "또한", "이러한", "있으며", "합니다", "됩니다",
+}
+# 단어 끝에 붙은 흔한 조사 — 떼어내고 빈도를 합산한다 ("정보를"+"정보의"→"정보")
+_JOSA = ("이라는", "라는", "에서", "으로", "까지", "부터", "에게",
+         "을", "를", "이", "가", "은", "는", "의", "에", "로", "와", "과", "도", "만")
+
+
+def _strip_josa(word: str) -> str:
+    for josa in _JOSA:  # 긴 조사부터 매칭되도록 위 튜플은 길이순 정렬돼 있음
+        if word.endswith(josa) and len(word) - len(josa) >= 2:
+            return word[: -len(josa)]
+    return word
+
+
 def _extractive_keywords(text: str, max_keywords: int = 8) -> list[str]:
-    """최다 빈도 단어를 키워드로 사용 (LLM 불필요)."""
-    freq = Counter(w for w in _words(text) if len(w) >= 2)
+    """조사를 떼고 기능어를 거른 빈도 상위 단어 (LLM 불필요한 폴백용)."""
+    freq: Counter = Counter()
+    for w in _words(text):
+        w = _strip_josa(w)
+        if len(w) >= 2 and w not in _STOPWORDS:
+            freq[w] += 1
     return [w for w, _ in freq.most_common(max_keywords)]
 
 
