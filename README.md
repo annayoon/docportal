@@ -17,7 +17,7 @@
   버전을 다운로드할 수 있음. **이전 버전으로 복원**(이력 보존)과 **버전 간
   내용 비교(diff)** 지원. 파일은 내용 해시(SHA-256) 기반으로 중복 없이 저장.
 - **문서 정보 수정** — 파일 문서의 제목·부서·태그를 재업로드 없이 수정
-  (검색 인덱스 자동 갱신).
+  (검색 인덱스 자동 갱신, 작성자/관리자만).
 - **위키 문서 작성** — 마크다운으로 문서를 작성/편집. 편집할 때마다 버전이
   기록되고 이전 버전 열람 가능.
 - **부서/태그 분류** — 부서별 필터, 태그 검색.
@@ -29,8 +29,9 @@
   문서를 탐색할 수 있다.
 - **연관 문서 추천** — 문서 페이지에서 키워드·태그가 겹치는 다른 문서를
   자동으로 찾아 추천.
-- **로그인 & 관리자 승인** — 회사 이메일 도메인만 가입 가능, 관리자 승인 후
-  로그인. 첫 가입자가 자동으로 관리자. 문서 삭제는 작성자/관리자만.
+- **로그인 & 권한** — 회사 이메일 도메인만 가입 가능, 관리자 승인 후 로그인.
+  첫 가입자가 자동으로 관리자. 파일 문서의 삭제·정보수정·버전복원·새버전은
+  작성자/관리자만 가능(위키는 협업 문서라 누구나 편집).
 - **이메일 인증 (선택)** — SMTP를 설정하면 가입 시 인증 메일 발송, 인증 완료
   후 로그인 가능. 미설정 시 인증 절차 없이 관리자 승인만으로 동작.
 - **인앱 알림** — 문서 업로드·편집 시 다른 사용자에게 알림.
@@ -119,17 +120,33 @@ USER/PASSWORD가 없으면 인증 메일 없이 기존처럼 동작한다(폐쇄
 
 ```
 app/
-  main.py            # FastAPI 앱
-  config.py          # 경로/설정
-  db.py              # 스키마, FTS 인덱싱
+  main.py            # FastAPI 앱 + 인증 미들웨어
+  config.py          # 경로/설정 (환경변수)
+  db.py              # 스키마, FTS 인덱싱, 활동로그, 동기화 큐
+  auth.py            # 비밀번호 해시, 세션
   routers/
-    documents.py     # 업로드, 상세, 버전, 다운로드
+    documents.py     # 업로드, 상세, 버전, 복원, 비교, 다운로드/변환
     search.py        # 전문 검색 (FTS5 trigram + 짧은 검색어 LIKE 폴백)
     wiki.py          # 마크다운 문서 작성/편집
+    auth.py          # 로그인/가입/이메일 인증
+    admin.py         # 사용자/문서/활동로그/금칙어/저장소 관리
+    notifications.py # 인앱 알림
   services/
     extractor.py     # PDF/DOCX/PPTX/XLSX/HWP 텍스트 추출
-    storage.py       # 해시 기반 파일 저장
+    storage.py       # 해시 기반 스트리밍 파일 저장
+    summarizer.py    # LLM 요약·키워드 (Ollama, 빈도 기반 폴백)
+    sensitive.py     # 민감정보 마스킹, 금칙어
+    converter.py     # LibreOffice 형식 변환 (동시 실행 상한)
+    maxkb.py         # MaxKB 챗봇 동기화 (영속 큐 + 워커)
+    webhook.py       # Google Chat/Slack 푸시
+    mailer.py        # SMTP 인증 메일
   templates/, static/
+deploy/
+  install.sh         # 서버 일괄 설치 (Ubuntu/Debian)
+  docportal.service  # systemd 유닛
+  nginx.conf         # 리버스 프록시 예시
+  maxkb_setup.py     # MaxKB 초기 설정 (모델·지식베이스·챗봇 자동 생성)
+  smoke_test.py      # 운영 서버 자가 점검 (11항목, 흔적 자체 정리)
 ```
 
 ## 로드맵 (예정)
