@@ -9,6 +9,11 @@ DB_PATH = DATA_DIR / "docportal.db"
 # 인덱싱할 본문 텍스트 최대 길이 (문자 수)
 MAX_TEXT_LEN = 2_000_000
 
+# 텍스트 추출을 시도할 파일 크기 상한 (MB) — 이보다 크면 저장만 하고 추출 생략
+# (추출 라이브러리가 파일을 메모리에 올리므로, 초대형 파일의 메모리 폭주 방지)
+EXTRACT_MAX_MB = int(os.environ.get("DOCPORTAL_EXTRACT_MAX_MB", "64"))
+EXTRACT_MAX_BYTES = EXTRACT_MAX_MB * 1024 * 1024
+
 # 회원가입 허용 이메일 도메인 (폐쇄망 전제 — 실제 메일 발송 없이 도메인 검증 + 관리자 승인으로 처리)
 ALLOWED_EMAIL_DOMAIN = os.environ.get("DOCPORTAL_EMAIL_DOMAIN", "atto-research.com")
 

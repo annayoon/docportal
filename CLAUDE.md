@@ -121,6 +121,13 @@ uvicorn app.main:app --port 8001 --reload
   테이블(관리자 `/admin/banned`), 제목·태그·위키 본문만 검사해 차단(업로드 파일
   본문은 미검사 — 외부 문서 오탐 방지).
 
+- 파일 문서 변경 권한: 정보수정·복원·새버전은 작성자/관리자만
+  (`_require_owner_or_admin`, 삭제와 동일 기준). **위키는 협업 설계라 모두 가능**
+  (사용자 확인된 정책). UI 버튼도 `can_modify`로 숨김.
+- 업로드는 스트리밍(`storage.save_upload`) — 파일 크기 무관 메모리 고정.
+  텍스트 추출은 `DOCPORTAL_EXTRACT_MAX_MB`(기본 64MB) 이하만 시도.
+- 서버 시크릿: systemd drop-in(*.conf)은 **chmod 600** 유지할 것 (타 계정 열람 방지).
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),

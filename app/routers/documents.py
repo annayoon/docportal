@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
+from ..config import EXTRACT_MAX_BYTES, EXTRACT_MAX_MB
 from ..db import (
     fts_phrase, get_banned_words, get_conn, log_activity, notify_admins, notify_others,
     reindex_document,
@@ -38,6 +39,20 @@ _INLINE_TYPES = {
 def _render_markdown(text: str) -> str:
     """마크다운 → HTML 후 소독. 원문에 심어진 <script> 등 실행형 태그를 제거한다."""
     return nh3.clean(md.markdown(text, extensions=["tables", "fenced_code", "toc"]))
+
+
+def _require_owner_or_admin(doc, user) -> None:
+    """파일 문서의 변경(정보수정·복원·새버전)은 작성자/관리자만 — 삭제와 동일 기준."""
+    if user["role"] != "admin" and doc["created_by"] != user["id"]:
+        raise HTTPException(403, "이 문서의 작성자 또는 관리자만 수행할 수 있습니다.")
+
+
+def _extract_masked(stored_name: str, filename: str, size: int) -> tuple[str, list[str]]:
+    """저장된 파일에서 텍스트 추출 + 민감정보 마스킹. 초대형 파일은 추출 생략."""
+    if size == 0 or size > EXTRACT_MAX_BYTES:
+        return "", []
+    data = storage.file_path(stored_name).read_bytes()
+    return scan_and_mask(extract_text(data, filename))
 
 
 def _preview_kind(filename: str | None, content_text: str) -> str | None:
@@ -158,13 +173,13 @@ async def upload(
         if hits:
             raise HTTPException(400, f"제목/태그에 사용할 수 없는 단어가 있습니다: {', '.join(hits)}")
         for file in uploads:
-            data = await file.read()
             filename = file.filename or "unnamed"
-            if not data:
+            # 스트리밍 저장 — 파일 크기와 무관하게 메모리 사용 고정
+            sha, stored_name, size = await storage.save_upload(file)
+            if size == 0:
                 continue
-            sha, stored_name, size = storage.save_file(data)
             # 검색·요약·챗봇에 나가는 추출 텍스트는 민감정보를 마스킹 (원본 파일은 그대로)
-            text, sflags = scan_and_mask(extract_text(data, filename))
+            text, sflags = _extract_masked(stored_name, filename, size)
             doc_title = (title.strip() if single else "") or Path(filename).stem
             cur = conn.execute(
                 "INSERT INTO documents (title, doc_type, department, tags, created_by, sensitive_flags) "
@@ -239,12 +254,18 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         can_pdf = doc["doc_type"] == "wiki" or (
             converter.available() and converter.can_convert(src_ext) and src_ext != ".pdf"
         )
+        # 파일 문서의 변경 권한 (위키는 협업 문서라 모두 가능)
+        user = request.state.user
+        can_modify = doc["doc_type"] == "wiki" or (
+            user is not None and (user["role"] == "admin" or user["id"] == doc["created_by"])
+        )
         return templates.TemplateResponse(
             request,
             "document.html",
             {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered,
              "preview": preview, "related": related,
-             "convert_on": converter.available(), "can_pdf": can_pdf},
+             "convert_on": converter.available(), "can_pdf": can_pdf,
+             "can_modify": can_modify},
         )
     finally:
         conn.close()
@@ -277,6 +298,7 @@ def edit_meta(
         doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
         if doc is None or doc["doc_type"] != "file":
             raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        _require_owner_or_admin(doc, current_user)
         conn.execute(
             "UPDATE documents SET title = ?, department = ?, tags = ?, "
             "updated_at = datetime('now','localtime') WHERE id = ?",
@@ -299,6 +321,8 @@ def revert_version(doc_id: int, version_no: int, current_user=Depends(get_curren
         doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
         if doc is None:
             raise HTTPException(404, "문서를 찾을 수 없습니다.")
+        if doc["doc_type"] == "file":  # 위키는 협업 문서라 복원도 누구나 가능
+            _require_owner_or_admin(doc, current_user)
         src = conn.execute(
             "SELECT * FROM versions WHERE document_id = ? AND version_no = ?",
             (doc_id, version_no),
@@ -390,17 +414,17 @@ async def upload_version(
     file: UploadFile = File(...),
     current_user=Depends(get_current_user),
 ):
-    data = await file.read()
     filename = file.filename or "unnamed"
-    if not data:
-        raise HTTPException(400, "빈 파일입니다.")
     conn = get_conn()
     try:
         doc = conn.execute("SELECT * FROM documents WHERE id = ?", (doc_id,)).fetchone()
         if doc is None or doc["doc_type"] != "file":
             raise HTTPException(404, "문서를 찾을 수 없습니다.")
-        sha, stored_name, size = storage.save_file(data)
-        text, sflags = scan_and_mask(extract_text(data, filename))
+        _require_owner_or_admin(doc, current_user)
+        sha, stored_name, size = await storage.save_upload(file)
+        if size == 0:
+            raise HTTPException(400, "빈 파일입니다.")
+        text, sflags = _extract_masked(stored_name, filename, size)
         next_no = conn.execute(
             "SELECT COALESCE(MAX(version_no), 0) + 1 AS n FROM versions WHERE document_id = ?",
             (doc_id,),
