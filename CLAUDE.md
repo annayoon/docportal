@@ -55,7 +55,10 @@ uvicorn app.main:app --port 8001 --reload
   Gmail 앱 비밀번호가 회사 규정상 불가라 웹훅이 사실상의 푸시 수단.
 
 - 미리보기/요약: 상세 페이지에서 PDF·이미지는 `/versions/{id}/preview`(inline)로
-  브라우저 렌더링, 그 외는 `content_text` 표시. 요약은 `versions.summary`에
+  브라우저 렌더링. **오피스 문서(docx/pptx/xlsx 등)는 LibreOffice로 PDF 변환해
+  iframe 미리보기** — 변환 결과는 `data/previews/{sha256}.pdf`에 캐시(버전당
+  1회), 변환 실패 시 추출 텍스트로 폴백. HWP는 변환 필터가 없어 텍스트 표시.
+  그 외는 `content_text` 표시. 요약은 `versions.summary`에
   캐시 — `app/services/summarizer.py`가 Ollama(`DOCPORTAL_OLLAMA_URL`, 기본
   localhost:11434, 모델 `DOCPORTAL_OLLAMA_MODEL` 기본 gemma4:12b) 시도 후 실패하면
   빈도 기반 추출 요약으로 폴백. 사내 서버에 Ollama 없어도 동작.

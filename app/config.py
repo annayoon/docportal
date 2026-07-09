@@ -66,5 +66,10 @@ OLLAMA_MODEL = os.environ.get("DOCPORTAL_OLLAMA_MODEL", "gemma4:12b")
 SUMMARY_INPUT_LEN = 8_000   # 요약에 넣을 본문 최대 길이 (문자)
 
 
+# 오피스 문서 미리보기용 변환 PDF 캐시
+PREVIEW_DIR = DATA_DIR / "previews"
+
+
 def ensure_dirs() -> None:
     FILES_DIR.mkdir(parents=True, exist_ok=True)
+    PREVIEW_DIR.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
-from ..config import EXTRACT_MAX_BYTES, EXTRACT_MAX_MB
+from ..config import EXTRACT_MAX_BYTES, EXTRACT_MAX_MB, PREVIEW_DIR
 from ..db import (
     fts_phrase, get_banned_words, get_conn, log_activity, notify_admins, notify_others,
     reindex_document,
@@ -55,13 +55,17 @@ def _extract_masked(stored_name: str, filename: str, size: int) -> tuple[str, li
     return scan_and_mask(extract_text(data, filename))
 
 
-def _preview_kind(filename: str | None, content_text: str) -> str | None:
+def _preview_kind(filename: str | None, content_text: str, size: int = 0) -> str | None:
     if filename:
         suffix = Path(filename).suffix.lower()
         if suffix in _PREVIEW_IFRAME:
             return "pdf"
         if suffix in _PREVIEW_IMAGE:
             return "image"
+        # 오피스 문서(docx/pptx/xlsx 등)는 PDF로 변환해 문서 모양 그대로 미리보기
+        if (converter.available() and converter.can_convert(suffix)
+                and suffix not in (".txt", ".html", ".htm") and 0 < size <= EXTRACT_MAX_BYTES):
+            return "pdf"
     if content_text.strip():
         return "text"
     return None
@@ -247,7 +251,7 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         if doc["doc_type"] == "wiki":
             rendered = _render_markdown(shown["content_text"])
         else:
-            preview = _preview_kind(shown["filename"], shown["content_text"])
+            preview = _preview_kind(shown["filename"], shown["content_text"], shown["size"] or 0)
         related = _related_docs(conn, doc_id, versions[0]["keywords"], doc["tags"])
         # 다운로드 형식 옵션: 위키는 HTML(+변환 시 PDF/Word), 파일은 원본(+변환 시 PDF)
         src_ext = Path(shown["filename"] or "").suffix.lower() if shown["filename"] else ""
@@ -578,16 +582,37 @@ def preview_file(version_id: int):
         raise HTTPException(404, "저장된 파일이 없습니다.")
     ext = Path(ver["filename"] or "").suffix.lower()
     media_type = _INLINE_TYPES.get(ext)
-    if media_type is None:
-        # 화이트리스트 외 형식(HTML/SVG 등)은 브라우저 실행 방지를 위해 첨부 다운로드로
+    if media_type is not None:
         return FileResponse(
-            path, filename=ver["filename"], media_type="application/octet-stream"
+            path,
+            media_type=media_type,
+            filename=ver["filename"],
+            content_disposition_type="inline",
         )
+    # 오피스 문서: PDF로 변환해 문서 모양 그대로 미리보기 (해시 기반 캐시 — 버전당 1회 변환)
+    if (converter.available() and converter.can_convert(ext)
+            and ext not in (".txt", ".html", ".htm")
+            and (ver["size"] or 0) <= EXTRACT_MAX_BYTES):
+        cache = PREVIEW_DIR / f"{ver['sha256']}.pdf"
+        if not cache.exists():
+            try:
+                pdf = converter.convert(path.read_bytes(), ext, "pdf")
+                cache.write_bytes(pdf)
+            except Exception:
+                # 변환 실패(손상 파일·변환기 부하 등) → 추출 텍스트로 폴백
+                return Response(
+                    ver["content_text"] or "미리보기를 생성할 수 없습니다.",
+                    media_type="text/plain; charset=utf-8",
+                )
+        return FileResponse(
+            cache,
+            media_type="application/pdf",
+            filename=f"{Path(ver['filename'] or 'preview').stem}.pdf",
+            content_disposition_type="inline",
+        )
+    # 그 외 형식(HTML/SVG 등)은 브라우저 실행 방지를 위해 첨부 다운로드로
     return FileResponse(
-        path,
-        media_type=media_type,
-        filename=ver["filename"],
-        content_disposition_type="inline",
+        path, filename=ver["filename"], media_type="application/octet-stream"
     )
 
 
