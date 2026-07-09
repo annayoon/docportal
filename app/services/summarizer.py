@@ -71,15 +71,17 @@ def _ollama_analyze(text: str) -> tuple[str, list[str]]:
         f"{OLLAMA_URL}/api/generate",
         data=json.dumps(
             {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
-             "options": {"temperature": 0.2, "num_predict": 800}}
+             # num_ctx를 명시하지 않으면 기본(4096)보다 긴 문서에서 지시문이
+             # 잘려 빈 응답이 나온다 — 8천자 본문 + 지시 + 출력 여유분
+             "options": {"temperature": 0.2, "num_predict": 1200, "num_ctx": 10240}}
         ).encode(),
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
+    with urllib.request.urlopen(req, timeout=180) as resp:
         raw = json.loads(resp.read())["response"].strip()
 
-    # qwen3 계열 등이 앞에 붙이는 사고 과정(<think>...</think>) 제거
-    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.S).strip()
+    # qwen3 계열 등이 앞에 붙이는 사고 과정 제거 (출력 한도에 걸려 안 닫힌 경우 포함)
+    raw = re.sub(r"<think>.*?(</think>|\Z)", "", raw, flags=re.S).strip()
 
     # '요약:' ~ '키워드:' 구간 추출 (마커가 없으면 전체를 요약 후보로)
     summary_match = re.search(r"요약\s*[::]?\s*\n?(.+?)(?=\n\s*키워드\s*[::]|\Z)", raw, re.S)
