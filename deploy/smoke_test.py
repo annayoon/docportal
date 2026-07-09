@@ -85,8 +85,23 @@ def db():
     return conn
 
 
+def wait_ready(seconds: int = 30) -> bool:
+    """서버 재시작 직후 실행돼도 붙을 수 있게 준비될 때까지 대기."""
+    import time
+    for _ in range(seconds):
+        try:
+            opener.open(BASE + "/login", timeout=3)
+            return True
+        except Exception:
+            time.sleep(1)
+    return False
+
+
 def main():
     print(f"대상: {BASE}  /  DB: {DB}\n")
+    if not wait_ready():
+        print(f"서버({BASE})가 30초 내에 응답하지 않습니다. docportal 서비스 상태를 확인하세요.")
+        sys.exit(2)
 
     # ── 준비: 테스트 계정 ──
     from app.auth import hash_password  # 서버 코드의 해시 함수 재사용
