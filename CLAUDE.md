@@ -84,7 +84,9 @@ uvicorn app.main:app --port 8001 --reload
   백그라운드 태스크, 알림은 다건일 때 'N건' 한 번만 브로드캐스트.
 
 - 형식 변환: `app/services/converter.py`가 LibreOffice(headless)로 변환.
-  `/versions/{id}/download?format=original|pdf|docx|html`. 파일 문서는
+  `/versions/{id}/download?format=original|pdf|docx|html|md`. md는 markitdown
+  (docx/pptx/xlsx/pdf/csv→마크다운, Word는 서식 유지·PDF는 텍스트 기반), 위키
+  md는 원본 마크다운 그대로. HWP는 markitdown 미지원이라 md 버튼 없음. 파일 문서는
   original(그대로)/pdf(변환), 위키는 html(순수 파이썬)/pdf/docx(LibreOffice).
   soffice 경로는 자동 탐색 + `DOCPORTAL_SOFFICE`로 지정. 미설치면 원본/HTML만.
 

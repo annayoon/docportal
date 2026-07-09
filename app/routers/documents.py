@@ -258,6 +258,7 @@ def detail(request: Request, doc_id: int, v: int | None = None):
         can_pdf = doc["doc_type"] == "wiki" or (
             converter.available() and converter.can_convert(src_ext) and src_ext != ".pdf"
         )
+        can_md = doc["doc_type"] == "wiki" or src_ext in _MD_SOURCES
         # 파일 문서의 변경 권한 (위키는 협업 문서라 모두 가능)
         user = request.state.user
         can_modify = doc["doc_type"] == "wiki" or (
@@ -268,7 +269,7 @@ def detail(request: Request, doc_id: int, v: int | None = None):
             "document.html",
             {"doc": doc, "versions": versions, "shown": shown, "rendered": rendered,
              "preview": preview, "related": related,
-             "convert_on": converter.available(), "can_pdf": can_pdf,
+             "convert_on": converter.available(), "can_pdf": can_pdf, "can_md": can_md,
              "can_modify": can_modify},
         )
     finally:
@@ -462,7 +463,24 @@ _MEDIA_TYPES = {
     "pdf": "application/pdf",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "html": "text/html; charset=utf-8",
+    "md": "text/markdown; charset=utf-8",
 }
+
+# markitdown이 마크다운으로 변환할 수 있는 원본 형식
+_MD_SOURCES = {".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls",
+               ".pdf", ".csv", ".txt", ".html", ".htm", ".odt", ".rtf"}
+
+
+def _to_markdown(data: bytes, ext: str) -> str:
+    """원본 파일을 마크다운으로 변환 (markitdown). 확장자 힌트를 위해 임시 파일 사용."""
+    import tempfile
+
+    from markitdown import MarkItDown
+
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=True) as tmp:
+        tmp.write(data)
+        tmp.flush()
+        return MarkItDown().convert(tmp.name).text_content
 
 
 def _wiki_html(title: str, markdown_text: str) -> bytes:
@@ -507,11 +525,18 @@ def download(request: Request, version_id: int, format: str = "original"):
     if ver is None or doc is None:
         raise HTTPException(404, "문서를 찾을 수 없습니다.")
 
-    # 위키 문서: 원본 파일이 없으므로 HTML로 만들어 내보낸다 (html/pdf/docx)
+    # 위키 문서: 원본 파일이 없으므로 HTML로 만들어 내보낸다 (html/pdf/docx/md)
     if doc["doc_type"] == "wiki":
+        base = _safe_name(doc["title"])
+        if format == "md":
+            # 위키 본문은 이미 마크다운 → 그대로 내보냄
+            return Response(
+                content=(ver["content_text"] or "").encode(),
+                media_type=_MEDIA_TYPES["md"],
+                headers={"Content-Disposition": _disposition(f"{base}.md")},
+            )
         target = format if format in ("html", "pdf", "docx") else "html"
         html = _wiki_html(doc["title"], ver["content_text"] or "")
-        base = _safe_name(doc["title"])
         if target == "html":
             data = html
         else:
@@ -556,6 +581,21 @@ def download(request: Request, version_id: int, format: str = "original"):
             content=data,
             media_type=_MEDIA_TYPES["pdf"],
             headers={"Content-Disposition": _disposition(f"{base}.pdf")},
+        )
+
+    # Markdown으로 변환 다운로드 (Word는 서식까지, PDF/텍스트는 텍스트 기반)
+    if format == "md":
+        if src_ext not in _MD_SOURCES:
+            raise HTTPException(400, "이 형식은 Markdown 변환을 지원하지 않습니다.")
+        try:
+            text = _to_markdown(path.read_bytes(), src_ext)
+        except Exception:
+            raise HTTPException(500, "Markdown 변환에 실패했습니다.")
+        base = _safe_name(Path(ver["filename"] or "document").stem)
+        return Response(
+            content=text.encode(),
+            media_type=_MEDIA_TYPES["md"],
+            headers={"Content-Disposition": _disposition(f"{base}.md")},
         )
 
     raise HTTPException(400, "지원하지 않는 다운로드 형식입니다.")

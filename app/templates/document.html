@@ -19,6 +19,7 @@
       <div class="download-group">
         <span class="dl-label">⬇ 내보내기</span>
         <a class="btn" href="/versions/{{ vid }}/download?format=html">HTML</a>
+        <a class="btn" href="/versions/{{ vid }}/download?format=md">Markdown</a>
         {% if convert_on %}
         <a class="btn" href="/versions/{{ vid }}/download?format=pdf">PDF</a>
         <a class="btn" href="/versions/{{ vid }}/download?format=docx">Word</a>
@@ -29,7 +30,11 @@
       <div class="download-group">
         <a class="btn" href="/versions/{{ versions[0].id }}/download?format=original">⬇ 원본 다운로드</a>
         {% if can_pdf %}
-        <a class="btn" href="/versions/{{ versions[0].id }}/download?format=pdf">PDF로 변환 다운로드</a>
+        <a class="btn" href="/versions/{{ versions[0].id }}/download?format=pdf">PDF 변환</a>
+        {% endif %}
+        {% if can_md %}
+        <a class="btn" href="/versions/{{ versions[0].id }}/download?format=md"
+           {% if shown.filename and shown.filename.lower().endswith('.pdf') %}title="PDF는 텍스트 기반 변환이라 서식이 유지되지 않습니다"{% endif %}>Markdown 변환</a>
         {% endif %}
       </div>
       {% endif %}
