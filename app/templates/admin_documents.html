@@ -15,12 +15,18 @@
       <button type="submit" class="btn">필터</button>
     </form>
   </div>
-  {% if maxkb_on %}
-  <form action="/admin/maxkb-sync" method="post" class="inline-form" style="margin-bottom: 12px;"
-        onsubmit="return confirm('전체 문서를 MaxKB 지식베이스로 동기화할까요?')">
-    <button type="submit" class="btn">🤖 MaxKB 전체 동기화</button>
-  </form>
-  {% endif %}
+  <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+    {% if maxkb_on %}
+    <form action="/admin/maxkb-sync" method="post" class="inline-form"
+          onsubmit="return confirm('전체 문서를 MaxKB 지식베이스로 동기화할까요?')">
+      <button type="submit" class="btn">🤖 MaxKB 전체 동기화</button>
+    </form>
+    {% endif %}
+    <form action="/admin/rescan-sensitive" method="post" class="inline-form"
+          onsubmit="return confirm('전체 문서의 민감정보를 소급 재검사할까요? (마스킹 도입 전 문서 포함, 검색·챗봇 재동기화)')">
+      <button type="submit" class="btn">🔒 민감정보 소급 재검사</button>
+    </form>
+  </div>
 
   {% if docs %}
   <form action="/admin/documents/bulk-delete" method="post"

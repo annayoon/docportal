@@ -119,6 +119,48 @@ def bulk_delete(request: Request, doc_ids: list[int] = Form(...), admin=Depends(
     return RedirectResponse("/admin/documents", status_code=303)
 
 
+@router.post("/rescan-sensitive")
+def rescan_sensitive(admin=Depends(get_current_admin)):
+    """마스킹 기능 도입 전에 올라간 문서까지 소급 스캔 — 전체 버전의 텍스트를
+    다시 마스킹하고 검색 인덱스·MaxKB를 재동기화한다."""
+    from ..db import reindex_document
+    from ..services.sensitive import scan_and_mask
+
+    conn = get_conn()
+    changed_docs: set[int] = set()
+    try:
+        rows = conn.execute(
+            "SELECT id, document_id, content_text FROM versions "
+            "WHERE content_text IS NOT NULL AND content_text != ''"
+        ).fetchall()
+        doc_flags: dict[int, list[str]] = {}
+        for row in rows:
+            masked, flags = scan_and_mask(row["content_text"])
+            if masked != row["content_text"]:
+                conn.execute("UPDATE versions SET content_text = ? WHERE id = ?",
+                             (masked, row["id"]))
+                changed_docs.add(row["document_id"])
+            if flags:
+                doc_flags.setdefault(row["document_id"], [])
+                for f in flags:
+                    if f not in doc_flags[row["document_id"]]:
+                        doc_flags[row["document_id"]].append(f)
+        for doc_id, flags in doc_flags.items():
+            conn.execute("UPDATE documents SET sensitive_flags = ? WHERE id = ?",
+                         (",".join(flags), doc_id))
+        for doc_id in changed_docs:
+            reindex_document(conn, doc_id)
+        log_activity(conn, admin["id"], "sensitive", None,
+                     f"소급 재검사: 문서 {len(changed_docs)}건 마스킹 갱신")
+        conn.commit()
+    finally:
+        conn.close()
+    # 내용이 바뀐 문서는 MaxKB에도 재반영 (큐를 통해 순차 처리)
+    for doc_id in changed_docs:
+        maxkb.sync_async(doc_id)
+    return RedirectResponse("/admin/documents", status_code=303)
+
+
 @router.post("/maxkb-sync")
 def maxkb_full_sync(admin=Depends(get_current_admin)):
     """전체 문서를 MaxKB 지식베이스로 동기화 (초기 적재/재구축용)."""

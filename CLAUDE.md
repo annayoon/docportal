@@ -128,6 +128,12 @@ uvicorn app.main:app --port 8001 --reload
   텍스트 추출은 `DOCPORTAL_EXTRACT_MAX_MB`(기본 64MB) 이하만 시도.
 - 서버 시크릿: systemd drop-in(*.conf)은 **chmod 600** 유지할 것 (타 계정 열람 방지).
 
+- 민감정보 소급 재검사: `/admin/rescan-sensitive` — 마스킹 도입 전 문서까지
+  전체 버전 재스캔·마스킹 + FTS 재인덱싱 + MaxKB 재동기화(큐). 멱등.
+- MaxKB 운영 참고: 챗봇 링크는 무인증(사내망 전제 — 사용자 정책 확인 필요),
+  host 네트워크라 내부 PG(5432)가 서버 로컬에 노출될 수 있음(방화벽이 외부는
+  차단). 백업엔 /var/lib/maxkb 포함.
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),

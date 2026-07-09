@@ -74,7 +74,7 @@ sudo bash deploy/install.sh
 - 환경변수(SMTP·Ollama·BASE_URL 등): `deploy/docportal.service`에서 주석 해제
 - HTTPS 운영 시: nginx에 TLS 설정 후 `DOCPORTAL_SECURE_COOKIES=1` 활성화
 - 형식 변환(PDF/Word) 기능: 서버에 LibreOffice 설치 (`install.sh` 내 주석 참고)
-- 백업: `/var/lib/docportal` 디렉토리 하나만 챙기면 됨 (DB + 업로드 원본)
+- 백업: `/var/lib/docportal`(포털 DB+원본) — MaxKB 사용 시 `/var/lib/maxkb`도 함께
 - 상태 확인: `systemctl status docportal` / 로그: `journalctl -u docportal -f`
 
 ## MaxKB 챗봇 연동 (선택)
