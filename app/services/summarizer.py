@@ -49,10 +49,35 @@ def analyze(text: str) -> tuple[str, str]:
     try:
         summary, keywords = _ollama_analyze(text)
         if summary.strip():
+            # LLM이 키워드를 못 주면 키워드만 빈도 기반으로 보충
+            if not keywords:
+                keywords = _extractive_keywords(text)
             return summary.strip(), ", ".join(keywords)
     except Exception:
         logger.warning("Ollama 분석 실패 — 빈도 기반으로 폴백", exc_info=True)
     return _extractive_summary(text), ", ".join(_extractive_keywords(text))
+
+
+def _parse_llm_json(raw: str) -> dict | None:
+    """모델별 편차(마크다운 펜스, 앞뒤 잡담, 꼬리 잘림)를 견디는 JSON 파서."""
+    raw = raw.strip()
+    if raw.startswith("```"):  # ```json ... ``` 펜스 제거
+        raw = re.sub(r"^```[a-zA-Z]*\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw).strip()
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        pass
+    # 본문 속 첫 { ~ 마지막 } 블록만 추출해 재시도
+    match = re.search(r"\{.*\}", raw, re.S)
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError:
+            pass
+    return None
 
 
 def _ollama_analyze(text: str) -> tuple[str, list[str]]:
@@ -67,12 +92,21 @@ def _ollama_analyze(text: str) -> tuple[str, list[str]]:
         f"{OLLAMA_URL}/api/generate",
         data=json.dumps(
             {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
-             "options": {"temperature": 0.2}}
+             # num_predict로 출력 상한을 둬서 JSON이 무한정 길어지다 잘리는 것을 방지
+             "options": {"temperature": 0.2, "num_predict": 1500}}
         ).encode(),
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
-        parsed = json.loads(json.loads(resp.read())["response"])
+        raw = json.loads(resp.read())["response"]
+    parsed = _parse_llm_json(raw)
+    if parsed is None:
+        # JSON은 깨졌지만 내용이 텍스트로 왔다면 요약으로라도 활용 (키워드는 호출부가 보충)
+        cleaned = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", raw.strip()).strip()
+        if len(cleaned) >= 20:
+            logger.warning("LLM JSON 파싱 실패 — 텍스트 응답을 요약으로 사용: %r", raw[:120])
+            return cleaned[:1500], []
+        raise ValueError(f"LLM 응답 파싱 불가: {raw[:150]!r}")
     summary = parsed.get("summary", "")
     if isinstance(summary, list):
         summary = "\n".join(str(line) for line in summary)
