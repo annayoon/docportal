@@ -60,6 +60,7 @@ _I18N = {
 _I18N_SCRIPT = (
     "<script>(function(){var M=" + json.dumps(_I18N, ensure_ascii=False) + ";"
     "function fix(){"
+    "if(document.title==='MaxKB'||!document.title)document.title='DocPortal';"
     "document.querySelectorAll('[placeholder]').forEach("
     "function(e){if(M[e.placeholder])e.placeholder=M[e.placeholder];});"
     "document.querySelectorAll('[title]').forEach("
