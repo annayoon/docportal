@@ -41,9 +41,24 @@ def analyze_version(version_id: int) -> None:
         conn.close()
 
 
+def _sample(text: str, limit: int) -> str:
+    """긴 문서는 앞부분(표지·목차)만 자르면 요약이 왜곡되므로 앞+중간+끝을 고루 뽑는다."""
+    if len(text) <= limit:
+        return text
+    head = limit // 2
+    mid = limit // 4
+    tail = limit - head - mid
+    mid_start = (len(text) - mid) // 2
+    return (
+        text[:head] + "\n…(중략)…\n"
+        + text[mid_start:mid_start + mid] + "\n…(중략)…\n"
+        + text[-tail:]
+    )
+
+
 def analyze(text: str) -> tuple[str, str]:
     """본문에서 (요약, 키워드 콤마 문자열)을 뽑는다."""
-    text = text.strip()[:SUMMARY_INPUT_LEN]
+    text = _sample(text.strip(), SUMMARY_INPUT_LEN)
     if not text:
         return "", ""
     try:
