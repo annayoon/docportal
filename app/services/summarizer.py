@@ -58,60 +58,45 @@ def analyze(text: str) -> tuple[str, str]:
     return _extractive_summary(text), ", ".join(_extractive_keywords(text))
 
 
-def _parse_llm_json(raw: str) -> dict | None:
-    """모델별 편차(마크다운 펜스, 앞뒤 잡담, 꼬리 잘림)를 견디는 JSON 파서."""
-    raw = raw.strip()
-    if raw.startswith("```"):  # ```json ... ``` 펜스 제거
-        raw = re.sub(r"^```[a-zA-Z]*\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw).strip()
-    try:
-        parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else None
-    except json.JSONDecodeError:
-        pass
-    # 본문 속 첫 { ~ 마지막 } 블록만 추출해 재시도
-    match = re.search(r"\{.*\}", raw, re.S)
-    if match:
-        try:
-            parsed = json.loads(match.group(0))
-            return parsed if isinstance(parsed, dict) else None
-        except json.JSONDecodeError:
-            pass
-    return None
-
-
 def _ollama_analyze(text: str) -> tuple[str, list[str]]:
+    """평문 프로토콜('요약:'/'키워드:' 섹션) — JSON 강제보다 모델 편차에 훨씬 강하다."""
     prompt = (
-        "다음 문서를 분석해 JSON 객체로만 답하라. 형식:\n"
-        '{"summary": "핵심 내용을 \'- \'로 시작하는 3~5줄로 요약한 하나의 문자열",\n'
-        ' "keywords": ["문서의 주제·분류·검색에 유용한 핵심 키워드(명사구) 5~10개"]}\n'
-        "키워드는 한국어를 우선으로 하되, 고유명사·기술용어는 원문 표기를 유지하라.\n\n"
+        "당신은 사내 문서 요약기다. 아래 문서를 읽고, 문서를 베끼지 말고 "
+        "정확히 다음 형식으로만 답하라:\n\n"
+        "요약:\n- (핵심 내용을 새 문장으로 3~5줄)\n\n"
+        "키워드: (주제·분류·검색에 유용한 핵심 키워드 5~10개, 쉼표로 구분)\n\n"
         f"--- 문서 시작 ---\n{text}\n--- 문서 끝 ---"
     )
     req = urllib.request.Request(
         f"{OLLAMA_URL}/api/generate",
         data=json.dumps(
-            {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json",
-             # num_predict로 출력 상한을 둬서 JSON이 무한정 길어지다 잘리는 것을 방지
-             "options": {"temperature": 0.2, "num_predict": 1500}}
+            {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False,
+             "options": {"temperature": 0.2, "num_predict": 800}}
         ).encode(),
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
-        raw = json.loads(resp.read())["response"]
-    parsed = _parse_llm_json(raw)
-    if parsed is None:
-        # JSON은 깨졌지만 내용이 텍스트로 왔다면 요약으로라도 활용 (키워드는 호출부가 보충)
-        cleaned = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", raw.strip()).strip()
-        if len(cleaned) >= 20:
-            logger.warning("LLM JSON 파싱 실패 — 텍스트 응답을 요약으로 사용: %r", raw[:120])
-            return cleaned[:1500], []
-        raise ValueError(f"LLM 응답 파싱 불가: {raw[:150]!r}")
-    summary = parsed.get("summary", "")
-    if isinstance(summary, list):
-        summary = "\n".join(str(line) for line in summary)
-    keywords = [str(k).strip() for k in parsed.get("keywords", []) if str(k).strip()]
-    return str(summary), keywords[:10]
+        raw = json.loads(resp.read())["response"].strip()
+
+    # '요약:' ~ '키워드:' 구간 추출 (마커가 없으면 전체를 요약 후보로)
+    summary_match = re.search(r"요약\s*[::]?\s*\n?(.+?)(?=\n\s*키워드\s*[::]|\Z)", raw, re.S)
+    summary = (summary_match.group(1) if summary_match else raw).strip()
+    summary = re.sub(r"^```[a-zA-Z]*\s*|\s*```$", "", summary).strip()
+
+    keyword_match = re.search(r"키워드\s*[::]\s*(.+)", raw)
+    keywords = []
+    if keyword_match:
+        keywords = [
+            k.strip(" #·—-*") for k in re.split(r"[,、\n]", keyword_match.group(1))
+            if 1 < len(k.strip(" #·—-*")) <= 30
+        ][:10]
+
+    # 안전장치: 원문 메아리·깨진 응답은 요약으로 쓰지 않는다 (호출부가 폴백 처리)
+    if not summary or len(summary) > 1200:
+        raise ValueError(f"요약 형식 아님(길이 {len(summary)}): {raw[:120]!r}")
+    if summary.lstrip().startswith("{") or summary[:200] in text:
+        raise ValueError(f"원문 복사/JSON 응답으로 판단: {raw[:120]!r}")
+    return summary, keywords
 
 
 def _extractive_summary(text: str, max_sentences: int = 5) -> str:
