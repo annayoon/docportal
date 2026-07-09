@@ -17,9 +17,9 @@ router = APIRouter()
 
 # 챗봇 페이지에 주입할 '문서 포털로 돌아가기' 버튼 (MaxKB는 건드리지 않고 프록시에서 삽입)
 _BACK_BUTTON = (
-    '<a href="/" target="_top" style="position:fixed;top:12px;left:12px;z-index:2147483647;'
-    'background:#2563eb;color:#fff;padding:8px 14px;border-radius:9px;'
-    'font:600 14px/1 -apple-system,\'Malgun Gothic\',sans-serif;text-decoration:none;'
+    '<a href="/" target="_top" style="position:fixed;top:10px;right:52px;z-index:2147483647;'
+    'background:#2563eb;color:#fff;padding:6px 12px;border-radius:8px;'
+    'font:600 13px/1 -apple-system,\'Malgun Gothic\',sans-serif;text-decoration:none;'
     'box-shadow:0 2px 10px rgba(16,24,40,.25)">← 문서 포털</a>'
 )
 
