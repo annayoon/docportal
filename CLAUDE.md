@@ -130,7 +130,12 @@ uvicorn app.main:app --port 8001 --reload
 
 - 민감정보 소급 재검사: `/admin/rescan-sensitive` — 마스킹 도입 전 문서까지
   전체 버전 재스캔·마스킹 + FTS 재인덱싱 + MaxKB 재동기화(큐). 멱등.
-- MaxKB 운영 참고: 챗봇 링크는 무인증(사내망 전제 — 사용자 정책 확인 필요),
+- 챗봇 접근 제어: `/chat/*`는 DocPortal이 MaxKB로 리버스 프록시
+  (`app/routers/chatproxy.py`, httpx 스트리밍). `/chat`은 공개 경로가 아니라
+  AuthMiddleware가 로그인 강제 → 포털 로그인해야만 챗봇 사용 가능. **MaxKB
+  8080은 방화벽에서 외부 차단**(포털 경유만 허용)이 전제. content-encoding은
+  보존하고 raw 스트림 전달(MaxKB 내부 nginx가 항상 gzip). CHAT_URL은 포털
+  경유 주소로 설정. 이전 참고:
   host 네트워크라 내부 PG(5432)가 서버 로컬에 노출될 수 있음(방화벽이 외부는
   차단). 백업엔 /var/lib/maxkb 포함.
 

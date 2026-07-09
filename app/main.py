@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 from .auth import user_from_token
 from .config import SESSION_COOKIE
 from .db import get_conn, init_db
-from .routers import admin, auth, documents, notifications, search, wiki
+from .routers import admin, auth, chatproxy, documents, notifications, search, wiki
 from .services import maxkb
 
 app = FastAPI(title="DocPortal — 전사 문서 포털")
@@ -67,3 +67,4 @@ app.include_router(documents.router)
 app.include_router(notifications.router)
 app.include_router(search.router)
 app.include_router(wiki.router)
+app.include_router(chatproxy.router)

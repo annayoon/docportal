@@ -1,0 +1,51 @@
+"""AI 챗봇(MaxKB) 리버스 프록시 — 포털 로그인 사용자만 접근.
+
+MaxKB(8080)는 방화벽으로 외부 차단하고, 챗봇은 오직 이 경로를 통해서만 노출한다.
+`/chat/*`는 공개 경로가 아니므로 AuthMiddleware가 로그인을 강제한다 →
+결과적으로 '포털 로그인 = 챗봇 사용' 이 보장된다.
+스트리밍(SSE) 답변을 그대로 흘려보내기 위해 httpx 스트리밍을 사용한다.
+"""
+
+import httpx
+from fastapi import APIRouter, HTTPException, Request
+from starlette.background import BackgroundTask
+from starlette.responses import StreamingResponse
+
+from ..config import MAXKB_URL, maxkb_configured
+
+router = APIRouter()
+
+# 프록시가 다시 쓰거나 의미 없어지는 헤더는 전달하지 않는다
+# accept-encoding 제거: 업스트림이 압축 없이 응답하게 해 raw 스트림을 그대로 전달
+_DROP_REQ = {"host", "cookie", "content-length", "connection"}
+# content-encoding은 보존해야 함 — raw 스트림(압축 그대로)을 전달하므로
+# 브라우저가 이 헤더를 보고 압축을 해제한다. content-length/transfer-encoding은
+# 스트리밍이라 길이가 바뀌므로 제거.
+_DROP_RESP = {"content-length", "transfer-encoding", "connection"}
+
+
+@router.api_route("/chat", methods=["GET"])
+@router.api_route("/chat/{path:path}", methods=["GET", "POST"])
+async def chat_proxy(request: Request, path: str = ""):
+    if not maxkb_configured():
+        raise HTTPException(503, "AI 챗봇이 설정되어 있지 않습니다.")
+    url = f"{MAXKB_URL}/chat/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    body = await request.body()
+    headers = {k: v for k, v in request.headers.items() if k.lower() not in _DROP_REQ}
+
+    client = httpx.AsyncClient(timeout=300.0)
+    upstream = client.build_request(request.method, url, content=body, headers=headers)
+    resp = await client.send(upstream, stream=True)
+
+    async def close():
+        await resp.aclose()
+        await client.aclose()
+
+    return StreamingResponse(
+        resp.aiter_raw(),
+        status_code=resp.status_code,
+        headers={k: v for k, v in resp.headers.items() if k.lower() not in _DROP_RESP},
+        background=BackgroundTask(close),
+    )
