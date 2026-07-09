@@ -78,6 +78,9 @@ def _ollama_analyze(text: str) -> tuple[str, list[str]]:
     with urllib.request.urlopen(req, timeout=120) as resp:
         raw = json.loads(resp.read())["response"].strip()
 
+    # qwen3 계열 등이 앞에 붙이는 사고 과정(<think>...</think>) 제거
+    raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.S).strip()
+
     # '요약:' ~ '키워드:' 구간 추출 (마커가 없으면 전체를 요약 후보로)
     summary_match = re.search(r"요약\s*[::]?\s*\n?(.+?)(?=\n\s*키워드\s*[::]|\Z)", raw, re.S)
     summary = (summary_match.group(1) if summary_match else raw).strip()
