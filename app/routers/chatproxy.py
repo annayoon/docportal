@@ -55,10 +55,11 @@ _I18N_SCRIPT = (
     "function(e){if(M[e.placeholder])e.placeholder=M[e.placeholder];});"
     "document.querySelectorAll('[title]').forEach("
     "function(e){if(M[e.title])e.title=M[e.title];});"
-    "document.querySelectorAll('button,span,div,a,p,label,li').forEach(function(e){"
-    "if(e.children.length===0){var t=e.textContent.trim();if(M[t])e.textContent=M[t];}});"
-    "}new MutationObserver(fix).observe(document.documentElement,{subtree:true,childList:true});"
-    "setInterval(fix,500);fix();})();</script>"
+    # 텍스트 노드 단위로 치환 — 로딩 애니메이션 등 형제 요소가 붙어 있어도 잡힌다
+    "var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT),n;"
+    "while(n=w.nextNode()){var t=n.nodeValue.trim();if(t&&M[t])n.nodeValue=n.nodeValue.replace(t,M[t]);}"
+    "}new MutationObserver(fix).observe(document.documentElement,{subtree:true,childList:true,characterData:true});"
+    "setInterval(fix,400);fix();})();</script>"
 )
 
 # 프록시가 다시 쓰거나 의미 없어지는 헤더는 전달하지 않는다
