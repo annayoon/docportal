@@ -32,13 +32,30 @@ _I18N = {
     "Type your question": "질문을 입력하세요",
     "New Chat": "새 대화",
     "Chat History": "대화 기록",
+    "Share": "공유",
+    "Export Chat History": "대화 기록 내보내기",
+    "Export Markdown": "Markdown 내보내기",
+    "Export HTML": "HTML 내보내기",
+    "Export PDF": "PDF 내보내기",
+    "Generating Response": "응답 생성 중",
+    "Stop Response": "응답 중지",
+    "Select All": "전체 선택",
+    "Cancel": "취소",
+    "Copy Link": "링크 복사",
+    "Successful": "완료",
+    "Send": "전송",
+    "Clear": "지우기",
+    "Copy": "복사",
+    "Regenerate": "다시 생성",
 }
 _I18N_SCRIPT = (
     "<script>(function(){var M=" + json.dumps(_I18N, ensure_ascii=False) + ";"
     "function fix(){"
-    "document.querySelectorAll('textarea[placeholder],input[placeholder]').forEach("
+    "document.querySelectorAll('[placeholder]').forEach("
     "function(e){if(M[e.placeholder])e.placeholder=M[e.placeholder];});"
-    "document.querySelectorAll('button,span,div,a').forEach(function(e){"
+    "document.querySelectorAll('[title]').forEach("
+    "function(e){if(M[e.title])e.title=M[e.title];});"
+    "document.querySelectorAll('button,span,div,a,p,label,li').forEach(function(e){"
     "if(e.children.length===0){var t=e.textContent.trim();if(M[t])e.textContent=M[t];}});"
     "}new MutationObserver(fix).observe(document.documentElement,{subtree:true,childList:true});"
     "setInterval(fix,500);fix();})();</script>"
