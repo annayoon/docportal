@@ -102,6 +102,9 @@ async def chat_proxy(request: Request, path: str = ""):
         await resp.aclose()
         await client.aclose()
         html = raw.decode("utf-8", errors="replace")
+        # 상대 경로 에셋(./assets, ./favicon)을 절대 /chat/ 으로 고정 —
+        # 공유 페이지(/chat/share/<link>)는 깊이가 달라 상대경로가 어긋나 빈 화면이 됨
+        html = html.replace('="./', '="/chat/').replace("='./", "='/chat/")
         inject = _BACK_BUTTON + _I18N_SCRIPT
         if "</body>" in html:
             html = html.replace("</body>", inject + "</body>", 1)
