@@ -122,6 +122,7 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 .badge.wiki { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
 .badge.latest { background: var(--primary-soft); color: var(--primary); border-color: #bfdbfe; }
 .badge.dept { background: #fdf4ff; color: #a21caf; border-color: #f5d0fe; }
+.badge.sensitive { background: #fef2f2; color: var(--danger); border-color: #fecaca; }
 
 .empty {
   color: var(--muted); padding: 44px 32px; text-align: center;

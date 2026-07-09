@@ -5,6 +5,7 @@
   <div class="doc-head">
     <h1>{{ doc.title }}
       {% if doc.doc_type == 'wiki' %}<span class="badge wiki">위키</span>{% else %}<span class="badge">파일</span>{% endif %}
+      {% if doc.sensitive_flags %}<span class="badge sensitive" title="검색·요약·챗봇에는 마스킹 처리됨">🔒 민감정보: {{ doc.sensitive_flags }}</span>{% endif %}
     </h1>
     <div class="doc-meta">
       {% if doc.department %}<span>🏢 {{ doc.department }}</span>{% endif %}

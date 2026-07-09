@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}금칙어 관리{% endblock %}
+{% block content %}
+<section class="editor">
+  <h2>🚫 금칙어 관리</h2>
+  <p class="upload-hint">등록한 단어는 문서 제목·태그, 위키 제목·본문에 포함될 경우
+    업로드/저장이 차단됩니다. (업로드 파일 본문은 검사하지 않습니다.)</p>
+  <form action="/admin/banned" method="post" class="upload-form">
+    <input type="text" name="word" placeholder="차단할 단어" required>
+    <button type="submit" class="btn primary">추가</button>
+  </form>
+</section>
+
+<section>
+  <div class="section-head"><h2>등록된 금칙어 <span class="count">{{ words|length }}개</span></h2></div>
+  {% if words %}
+  <table class="doc-table">
+    <thead><tr><th>단어</th><th>등록일</th><th></th></tr></thead>
+    <tbody>
+      {% for w in words %}
+      <tr>
+        <td>{{ w.word }}</td>
+        <td>{{ w.created_at }}</td>
+        <td>
+          <form action="/admin/banned/{{ w.id }}/delete" method="post" class="inline-form">
+            <button type="submit" class="btn-link">삭제</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">등록된 금칙어가 없습니다.</p>
+  {% endif %}
+</section>
+{% endblock %}

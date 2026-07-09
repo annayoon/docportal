@@ -10,9 +10,13 @@ from fastapi import (
 from fastapi.responses import FileResponse, RedirectResponse, Response
 
 from ..auth import get_current_user
-from ..db import fts_phrase, get_conn, log_activity, notify_others, reindex_document
+from ..db import (
+    fts_phrase, get_banned_words, get_conn, log_activity, notify_admins, notify_others,
+    reindex_document,
+)
 from ..services import converter, maxkb, storage
 from ..services.extractor import extract_text
+from ..services.sensitive import find_banned, scan_and_mask
 from ..services.summarizer import analyze, analyze_version
 from ..templating import templates
 
@@ -145,20 +149,27 @@ async def upload(
     single = len(uploads) == 1
 
     new_ids: list[int] = []
+    flagged: list[tuple[int, str, str]] = []  # (doc_id, 제목, 발견유형) — 민감정보 발견분
     conn = get_conn()
     try:
+        banned = get_banned_words(conn)
+        # 금칙어 검사 — 사용자가 직접 입력한 제목·태그 (발견 시 전체 차단)
+        hits = find_banned(f"{title} {tags}", banned)
+        if hits:
+            raise HTTPException(400, f"제목/태그에 사용할 수 없는 단어가 있습니다: {', '.join(hits)}")
         for file in uploads:
             data = await file.read()
             filename = file.filename or "unnamed"
             if not data:
                 continue
             sha, stored_name, size = storage.save_file(data)
-            text = extract_text(data, filename)
+            # 검색·요약·챗봇에 나가는 추출 텍스트는 민감정보를 마스킹 (원본 파일은 그대로)
+            text, sflags = scan_and_mask(extract_text(data, filename))
             doc_title = (title.strip() if single else "") or Path(filename).stem
             cur = conn.execute(
-                "INSERT INTO documents (title, doc_type, department, tags, created_by) "
-                "VALUES (?, 'file', ?, ?, ?)",
-                (doc_title, department.strip(), tags.strip(), current_user["id"]),
+                "INSERT INTO documents (title, doc_type, department, tags, created_by, sensitive_flags) "
+                "VALUES (?, 'file', ?, ?, ?, ?)",
+                (doc_title, department.strip(), tags.strip(), current_user["id"], ",".join(sflags)),
             )
             doc_id = cur.lastrowid
             version_id = conn.execute(
@@ -168,6 +179,9 @@ async def upload(
             ).lastrowid
             reindex_document(conn, doc_id)
             log_activity(conn, current_user["id"], "upload", doc_id, filename)
+            if sflags:
+                log_activity(conn, current_user["id"], "sensitive", doc_id, ",".join(sflags))
+                flagged.append((doc_id, doc_title, ", ".join(sflags)))
             new_ids.append(doc_id)
             background_tasks.add_task(analyze_version, version_id)
         if not new_ids:
@@ -183,6 +197,12 @@ async def upload(
             notify_others(
                 conn, current_user["id"], new_ids[0],
                 f"{current_user['email']}님이 새 문서 {len(new_ids)}건을 업로드했습니다.",
+            )
+        # 민감정보 발견 문서는 관리자에게 경고 알림
+        for doc_id, doc_title, sflags in flagged:
+            notify_admins(
+                conn, doc_id,
+                f"⚠️ 민감정보 감지({sflags}) — 검색·챗봇에는 마스킹 처리됨: {doc_title}",
             )
         conn.commit()
     finally:
@@ -380,7 +400,7 @@ async def upload_version(
         if doc is None or doc["doc_type"] != "file":
             raise HTTPException(404, "문서를 찾을 수 없습니다.")
         sha, stored_name, size = storage.save_file(data)
-        text = extract_text(data, filename)
+        text, sflags = scan_and_mask(extract_text(data, filename))
         next_no = conn.execute(
             "SELECT COALESCE(MAX(version_no), 0) + 1 AS n FROM versions WHERE document_id = ?",
             (doc_id,),
@@ -391,11 +411,14 @@ async def upload_version(
             (doc_id, next_no, filename, stored_name, sha, size, text, note.strip()),
         ).lastrowid
         conn.execute(
-            "UPDATE documents SET updated_at = datetime('now','localtime') WHERE id = ?",
-            (doc_id,),
+            "UPDATE documents SET updated_at = datetime('now','localtime'), sensitive_flags = ? WHERE id = ?",
+            (",".join(sflags), doc_id),
         )
         reindex_document(conn, doc_id)
         log_activity(conn, current_user["id"], "version", doc_id, f"{filename} (v{next_no})")
+        if sflags:
+            log_activity(conn, current_user["id"], "sensitive", doc_id, ",".join(sflags))
+            notify_admins(conn, doc_id, f"⚠️ 민감정보 감지({', '.join(sflags)}) — 마스킹됨: {doc['title']}")
         notify_others(
             conn, current_user["id"], doc_id,
             f"{current_user['email']}님이 문서에 새 버전을 올렸습니다: {doc['title']} (v{next_no})",

@@ -22,7 +22,42 @@ ACTION_LABELS = {
     "download": "다운로드",
     "meta_edit": "정보 수정",
     "revert": "버전 복원",
+    "sensitive": "민감정보 감지",
 }
+
+
+@router.get("/banned")
+def banned_words(request: Request, admin=Depends(get_current_admin)):
+    conn = get_conn()
+    try:
+        words = conn.execute("SELECT * FROM banned_words ORDER BY word").fetchall()
+        return templates.TemplateResponse(request, "admin_banned.html", {"words": words})
+    finally:
+        conn.close()
+
+
+@router.post("/banned")
+def add_banned(request: Request, word: str = Form(...), admin=Depends(get_current_admin)):
+    w = word.strip()
+    if w:
+        conn = get_conn()
+        try:
+            conn.execute("INSERT OR IGNORE INTO banned_words (word) VALUES (?)", (w,))
+            conn.commit()
+        finally:
+            conn.close()
+    return RedirectResponse("/admin/banned", status_code=303)
+
+
+@router.post("/banned/{word_id}/delete")
+def delete_banned(word_id: int, admin=Depends(get_current_admin)):
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM banned_words WHERE id = ?", (word_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    return RedirectResponse("/admin/banned", status_code=303)
 
 
 @router.get("/documents")

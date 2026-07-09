@@ -114,6 +114,13 @@ uvicorn app.main:app --port 8001 --reload
   MaxKB는 로컬 Docker(colima)로 8080에서 구동,
   임베딩/LLM은 host.docker.internal로 호스트 Ollama 사용.
 
+- 민감정보/금칙어: `app/services/sensitive.py`. 민감정보(주민번호·카드·계좌·
+  휴대전화·이메일)는 추출 텍스트를 `scan_and_mask()`로 마스킹해 저장(검색·요약·
+  챗봇 반영, **원본 파일은 그대로**) + `documents.sensitive_flags` + 관리자 알림.
+  패턴 순서 주의(휴대전화를 계좌보다 먼저 — 형식 겹침). 금칙어는 `banned_words`
+  테이블(관리자 `/admin/banned`), 제목·태그·위키 본문만 검사해 차단(업로드 파일
+  본문은 미검사 — 외부 문서 오탐 방지).
+
 ## 보안 수칙 (2026-07-08 자체 점검에서 적용)
 
 - 사용자 입력 HTML은 반드시 소독: 위키 렌더링은 `_render_markdown()`(nh3),

@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS maxkb_sync_queue (
 );
 
 CREATE INDEX IF NOT EXISTS idx_syncq_due ON maxkb_sync_queue(next_attempt_at);
+
+CREATE TABLE IF NOT EXISTS banned_words (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  word TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
 """
 
 
@@ -132,6 +138,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE users ADD COLUMN verify_token TEXT")
     if "maxkb_doc_id" not in cols:
         conn.execute("ALTER TABLE documents ADD COLUMN maxkb_doc_id TEXT")
+    if "sensitive_flags" not in cols:
+        conn.execute("ALTER TABLE documents ADD COLUMN sensitive_flags TEXT NOT NULL DEFAULT ''")
     version_cols = {row["name"] for row in conn.execute("PRAGMA table_info(versions)")}
     if "summary" not in version_cols:
         conn.execute("ALTER TABLE versions ADD COLUMN summary TEXT")
@@ -165,6 +173,21 @@ def reindex_document(conn: sqlite3.Connection, doc_id: int) -> None:
     conn.execute(
         "INSERT INTO fts(rowid, title, content, tags, keywords) VALUES (?, ?, ?, ?, ?)",
         (doc_id, doc["title"], content, doc["tags"], keywords),
+    )
+
+
+def get_banned_words(conn: sqlite3.Connection) -> list[str]:
+    return [r["word"] for r in conn.execute("SELECT word FROM banned_words ORDER BY word")]
+
+
+def notify_admins(conn: sqlite3.Connection, doc_id: int, message: str) -> None:
+    """관리자 전원에게만 인앱 알림을 남긴다 (민감정보 경고용)."""
+    admins = conn.execute(
+        "SELECT id FROM users WHERE role = 'admin' AND status = 'approved'"
+    ).fetchall()
+    conn.executemany(
+        "INSERT INTO notifications (user_id, document_id, message) VALUES (?, ?, ?)",
+        [(a["id"], doc_id, message) for a in admins],
     )
 
 
