@@ -3,6 +3,28 @@
 {% block content %}
 <section class="editor">
   <h2>{% if doc %}✏️ 문서 편집{% else %}✏️ 새 문서 작성{% endif %}</h2>
+
+  {% if not doc %}
+  {# 구조 잡기 — 문서 타입과 독자·목적을 고르면 작성 가이드가 달린 목차 뼈대를 본문에 채워준다 #}
+  <details class="outline-panel" open>
+    <summary>🧭 구조 잡기 — 뭘 어떤 순서로 써야 할지 막막하다면</summary>
+    <div class="outline-form">
+      <select id="ol-type">
+        {% for t in doc_types %}
+        <option value="{{ t.id }}" title="{{ t.when_to_use }}">{{ t.name }} — {{ t.when_to_use }}</option>
+        {% endfor %}
+      </select>
+      <div class="editor-row">
+        <input type="text" id="ol-topic" placeholder="주제 (예: SSO 연동 방법)">
+        <input type="text" id="ol-audience" placeholder="독자 (예: 사내 개발자)">
+        <input type="text" id="ol-goal" placeholder="독자가 읽고 나서 할 수 있어야 하는 것">
+      </div>
+      <button type="button" class="btn" id="ol-generate">목차 뼈대 만들기</button>
+      <span id="ol-status" class="muted"></span>
+    </div>
+  </details>
+  {% endif %}
+
   <form action="{% if doc %}/wiki/{{ doc.id }}/edit{% else %}/wiki/new{% endif %}" method="post" class="editor-form">
     <input type="text" name="title" placeholder="제목" required
            value="{{ doc.title if doc else '' }}">
@@ -18,4 +40,43 @@
     </div>
   </form>
 </section>
+
+{% if not doc %}
+<script>
+(function () {
+  const btn = document.getElementById("ol-generate");
+  if (!btn) return;
+  const status = document.getElementById("ol-status");
+  const textarea = document.querySelector("textarea[name=content]");
+  const titleInput = document.querySelector("input[name=title]");
+
+  btn.addEventListener("click", async () => {
+    const topic = document.getElementById("ol-topic").value.trim();
+    const audience = document.getElementById("ol-audience").value.trim();
+    const goal = document.getElementById("ol-goal").value.trim();
+    if (!topic || !audience || !goal) {
+      status.textContent = "주제·독자·목표를 모두 입력해주세요 — 좋은 목차는 여기서 갈립니다.";
+      return;
+    }
+    if (textarea.value.trim() &&
+        !confirm("본문에 이미 내용이 있습니다. 목차 뼈대로 바꿀까요?")) return;
+
+    status.textContent = "목차 생성 중…";
+    try {
+      const params = new URLSearchParams({
+        doc_type: document.getElementById("ol-type").value,
+        topic: topic, audience: audience, goal: goal,
+      });
+      const res = await fetch("/wiki/outline?" + params);
+      if (!res.ok) throw new Error(await res.text());
+      textarea.value = await res.text();
+      if (!titleInput.value.trim()) titleInput.value = topic;
+      status.textContent = "완료 — 각 섹션의 주석(질문)에 답하는 내용을 채워보세요.";
+    } catch (e) {
+      status.textContent = "목차 생성에 실패했습니다: " + e.message;
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

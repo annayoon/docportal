@@ -12,3 +12,5 @@ nh3
 markitdown[docx,pptx,xlsx,pdf]
 # 형식 변환 다운로드는 시스템에 LibreOffice(headless) 설치 필요 (pip 아님)
 httpx
+# 위키 '구조 잡기'(목차 뼈대 생성) — Technical Writing Helper 코어
+twh @ git+https://github.com/annayoon/Technical-Writing-Helper@claude/technical-writing-mcp-ohw354

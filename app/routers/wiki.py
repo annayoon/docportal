@@ -1,5 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
+from twh import doc_types as twh_doc_types
+from twh import outline as twh_outline
 
 from ..auth import get_current_user
 from ..db import (
@@ -20,7 +22,42 @@ def _check_banned(conn, *parts: str) -> None:
 
 @router.get("/new")
 def new_page(request: Request):
-    return templates.TemplateResponse(request, "wiki_edit.html", {"doc": None, "content": ""})
+    return templates.TemplateResponse(
+        request,
+        "wiki_edit.html",
+        {"doc": None, "content": "", "doc_types": _outline_doc_types()},
+    )
+
+
+def _outline_doc_types() -> list[dict]:
+    """구조 잡기 패널의 문서 타입 선택지 (twh 내장 템플릿)."""
+    return [
+        {"id": t.id, "name": t.name, "when_to_use": t.when_to_use}
+        for t in twh_doc_types.load_all().values()
+    ]
+
+
+@router.get("/outline")
+def outline_skeleton(doc_type: str, topic: str, audience: str, goal: str):
+    """문서 타입 + 인터뷰 답변 → 섹션별 작성 가이드 주석이 달린 마크다운 뼈대.
+
+    새 문서 에디터의 '구조 잡기' 패널이 호출해 본문을 프리필한다.
+    """
+    types = twh_doc_types.load_all()
+    selected = types.get(doc_type)
+    if selected is None:
+        raise HTTPException(400, f"알 수 없는 문서 타입: {doc_type}")
+    suggestion = twh_outline.suggest(
+        selected, topic=topic.strip(), audience=audience.strip(), reader_goal=goal.strip()
+    )
+    md = twh_outline.outline_to_markdown(suggestion)
+    # 위키는 제목 입력란이 따로 있으므로 뼈대 첫 줄의 H1 제목은 뺀다
+    lines = md.splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+        while lines and not lines[0].strip():
+            lines.pop(0)
+    return PlainTextResponse("\n".join(lines))
 
 
 @router.post("/new")

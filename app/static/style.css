@@ -182,6 +182,20 @@ mark { background: var(--mark); padding: 0 2px; border-radius: 2px; }
 }
 .editor-actions { display: flex; gap: 8px; }
 
+/* 구조 잡기 패널 (새 위키 문서) */
+.outline-panel {
+  margin: 0 0 14px; border: 1px dashed var(--border, #d1d5db); border-radius: 10px;
+  padding: 10px 14px; background: #f8fafc;
+}
+.outline-panel summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; }
+.outline-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.outline-form select {
+  padding: 9px 10px; border: 1px solid var(--border, #d1d5db); border-radius: 8px;
+  font-size: 0.9rem; max-width: 100%;
+}
+.outline-form .btn { align-self: flex-start; }
+.muted { color: var(--muted); font-size: 0.85rem; }
+
 .summary-card {
   background: #fffdf5; border: 1px solid #fde68a; border-radius: 12px;
   padding: 16px 24px; margin-bottom: 24px;
